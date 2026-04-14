@@ -96,6 +96,7 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     return showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) => Dialog(
         backgroundColor: AppColors.cardBg,
         shape: RoundedRectangleBorder(
@@ -198,6 +199,7 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
   Future<void> _confirmDelete(LeasingUnit unit) async {
     final confirmed = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardBg,
         title: const Text('Delete unit?',

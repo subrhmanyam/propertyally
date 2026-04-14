@@ -74,16 +74,21 @@ Future<LeasingUnit?> showLeasingForm(
   LeasingUnit? unit,
   String? suggestedId,
 }) {
+  // useRootNavigator: true is required when inside a GoRouter ShellRoute —
+  // without it, the shell's nested navigator intercepts the call and the
+  // dialog never appears.
   if (Responsive.isMobile(context)) {
     return showModalBottomSheet<LeasingUnit>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _LeasingFormSheet(unit: unit, suggestedId: suggestedId),
     );
   }
   return showDialog<LeasingUnit>(
     context: context,
+    useRootNavigator: true,
     barrierColor: AppColors.bgOuter.withValues(alpha: 0.7),
     builder: (_) => Dialog(
       backgroundColor: Colors.transparent,
