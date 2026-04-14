@@ -1,0 +1,100 @@
+# ── Node / root ───────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+package-lock.json
+yarn.lock
+
+# ── Flutter / Dart ────────────────────────────────────────────────────
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.pub-cache/
+frontend/.pub/
+frontend/pubspec.lock
+
+# Generated files
+frontend/**/*.g.dart
+frontend/**/*.freezed.dart
+frontend/**/*.mocks.dart
+
+# macOS platform files (generated, not committed unless customised)
+frontend/macos/Pods/
+frontend/macos/Flutter/ephemeral/
+
+# Web platform build output
+frontend/web/
+
+# IDE
+frontend/.idea/
+frontend/.vscode/
+frontend/*.iml
+
+# Large downloaded assets
+frontend/**/*.zip
+frontend/flutter_macos_arm64_*.zip
+
+# ── Python / Backend microservices ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib64/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# Environment / secrets
+.env
+.env.*
+*.env
+!*.env.example
+
+# ── Supabase / secrets ────────────────────────────────────────────────
+# Never commit real keys — use .env files or secret managers
+# supabase_config.dart is committed with real keys; rotate if repo goes public
+
+# ── OS ────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Editor ────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.history/
+
+# ── Logs & temp ───────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig

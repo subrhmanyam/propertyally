@@ -1,0 +1,62 @@
+name: bogi_property
+description: Bogineni Group Property Management Platform
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Navigation
+  go_router: ^13.2.0
+  # State management
+  provider: ^6.1.2
+  # HTTP client
+  dio: ^5.4.3+1
+  # Supabase
+  supabase_flutter: ^2.5.6
+  # Image caching
+  cached_network_image: ^3.3.1
+  # Charts
+  fl_chart: ^0.68.0
+  # Secure storage
+  flutter_secure_storage: ^9.0.0
+  # Formatting
+  intl: ^0.19.0
+  # SVG
+  flutter_svg: ^2.0.10+1
+  # Shimmer loading
+  shimmer: ^3.0.0
+  # File picker
+  file_picker: ^8.0.7
+  # Excel parsing for file import
+  excel: ^4.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.9
+  json_serializable: ^6.7.1
+  mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
