@@ -7,6 +7,8 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/properties/presentation/screens/leasing_list_screen.dart';
 import '../../features/tenants/presentation/screens/tenant_list_screen.dart';
+import '../../features/listings/presentation/screens/listing_detail_screen.dart';
+import '../../features/listings/presentation/screens/listings_screen.dart';
 import '../../features/tenants/presentation/screens/tenant_detail_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../constants/app_colors.dart';
@@ -93,8 +95,15 @@ class AppRouter {
             GoRoute(
               path: '/listings',
               name: 'listings',
-              pageBuilder: (_, s) => _page(s,
-                  const _ComingSoonScreen(title: 'Listings', icon: Icons.language_outlined)),
+              pageBuilder: (_, s) => _page(s, const ListingsScreen()),
+              routes: [
+                GoRoute(
+                  path: ':id',
+                  name: 'listing-detail',
+                  pageBuilder: (_, s) => _page(s,
+                      ListingDetailScreen(listingId: s.pathParameters['id']!)),
+                ),
+              ],
             ),
             GoRoute(
               path: '/calendar',

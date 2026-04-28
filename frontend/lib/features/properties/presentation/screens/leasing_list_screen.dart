@@ -10,6 +10,8 @@ import '../../../../core/utils/excel_importer.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../listings/presentation/providers/listings_provider.dart';
+import '../../../listings/presentation/widgets/platform_picker_dialog.dart';
 import '../../domain/entities/leasing_unit.dart';
 import '../providers/leasing_provider.dart';
 import '../widgets/leasing_form_dialog.dart';
@@ -205,6 +207,30 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     }
   }
 
+  Future<void> _publishUnit(LeasingUnit unit) async {
+    final selected = await PlatformPickerDialog.show(context, unit.id);
+    if (selected == null || selected.isEmpty || !mounted) return;
+    try {
+      await context.read<ListingsProvider>().triggerAgent(unit.id, selected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Publishing "${unit.name}" to ${selected.length} platform${selected.length == 1 ? '' : 's'}…',
+            ),
+            backgroundColor: AppColors.cardBg,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to trigger agent')),
+        );
+      }
+    }
+  }
+
   Future<void> _confirmDelete(LeasingUnit unit) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -250,6 +276,7 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
             onImport: _importFile,
             onEdit: _openEdit,
             onDelete: _confirmDelete,
+            onPublish: _publishUnit,
           );
         }
         // Otherwise → show company portfolio cards
@@ -630,6 +657,7 @@ class _UnitsView extends StatelessWidget {
     required this.onImport,
     required this.onEdit,
     required this.onDelete,
+    required this.onPublish,
   });
 
   final LeasingProvider provider;
@@ -639,6 +667,7 @@ class _UnitsView extends StatelessWidget {
   final VoidCallback onImport;
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
+  final ValueChanged<LeasingUnit> onPublish;
 
   @override
   Widget build(BuildContext context) {
@@ -756,12 +785,14 @@ class _UnitsView extends StatelessWidget {
                 units: provider.filtered,
                 onEdit: onEdit,
                 onDelete: onDelete,
+                onPublish: onPublish,
               )
             else
               _UnitTable(
                 units: provider.filtered,
                 onEdit: onEdit,
                 onDelete: onDelete,
+                onPublish: onPublish,
               ),
           ],
         ),
@@ -923,11 +954,13 @@ class _UnitTable extends StatelessWidget {
     required this.units,
     required this.onEdit,
     required this.onDelete,
+    required this.onPublish,
   });
 
   final List<LeasingUnit> units;
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
+  final ValueChanged<LeasingUnit> onPublish;
 
   @override
   Widget build(BuildContext context) {
@@ -966,6 +999,7 @@ class _UnitTable extends StatelessWidget {
                 isLast: e.key == units.length - 1,
                 onEdit: onEdit,
                 onDelete: onDelete,
+                onPublish: onPublish,
               )),
         ],
       ),
@@ -1002,12 +1036,14 @@ class _UnitRow extends StatefulWidget {
     required this.isLast,
     required this.onEdit,
     required this.onDelete,
+    required this.onPublish,
   });
 
   final LeasingUnit unit;
   final bool isLast;
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
+  final ValueChanged<LeasingUnit> onPublish;
 
   @override
   State<_UnitRow> createState() => _UnitRowState();
@@ -1093,6 +1129,15 @@ class _UnitRowState extends State<_UnitRow> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (u.status == 'vacant')
+                      Tooltip(
+                        message: 'Publish to platforms',
+                        child: _ActionBtn(
+                          icon: Icons.language_outlined,
+                          color: AppColors.accentGold,
+                          onTap: () => widget.onPublish(u),
+                        ),
+                      ),
                     _ActionBtn(icon: Icons.edit_outlined, onTap: () => widget.onEdit(u)),
                     _ActionBtn(
                         icon: Icons.delete_outline,
@@ -1137,11 +1182,13 @@ class _UnitCardList extends StatelessWidget {
     required this.units,
     required this.onEdit,
     required this.onDelete,
+    required this.onPublish,
   });
 
   final List<LeasingUnit> units;
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
+  final ValueChanged<LeasingUnit> onPublish;
 
   @override
   Widget build(BuildContext context) {
@@ -1180,7 +1227,20 @@ class _UnitCardList extends StatelessWidget {
                       fontSize: AppDimensions.fontBase),
                 ),
                 const SizedBox(height: 4),
-                _StatusBadge(status: u.status),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (u.status == 'vacant') ...[
+                      GestureDetector(
+                        onTap: () => onPublish(u),
+                        child: const Icon(Icons.language_outlined,
+                            size: 16, color: AppColors.accentGold),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    _StatusBadge(status: u.status),
+                  ],
+                ),
               ],
             ),
             onTap: () => onEdit(u),
