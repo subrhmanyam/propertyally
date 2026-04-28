@@ -46,6 +46,7 @@ class LeasingUnit {
     required this.floor,
     required this.status,
     required this.areas,
+    this.companyName = 'Bogineni Black',
     this.contact,
     this.email,
     this.notes,
@@ -53,6 +54,7 @@ class LeasingUnit {
 
   final String id;
   final String name;
+  final String companyName;
 
   /// Restaurant | Brewery | Cafe & Restaurant | Office | Residence |
   /// Shop | Event/Party | Studio Room | Co-working | Parking
@@ -82,6 +84,7 @@ class LeasingUnit {
 
   LeasingUnit copyWith({
     String? name,
+    String? companyName,
     String? category,
     String? floor,
     String? status,
@@ -93,6 +96,7 @@ class LeasingUnit {
       LeasingUnit(
         id: id,
         name: name ?? this.name,
+        companyName: companyName ?? this.companyName,
         category: category ?? this.category,
         floor: floor ?? this.floor,
         status: status ?? this.status,
@@ -105,6 +109,7 @@ class LeasingUnit {
   factory LeasingUnit.fromJson(Map<String, dynamic> json) => LeasingUnit(
         id: json['id']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
+        companyName: json['company_name']?.toString() ?? 'Bogineni Black',
         category: json['category']?.toString() ?? '',
         floor: json['floor']?.toString() ?? 'Ground Floor',
         status: json['status']?.toString() ?? 'vacant',
@@ -119,6 +124,7 @@ class LeasingUnit {
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
+        'company_name': companyName,
         'category': category,
         'floor': floor,
         'status': status,

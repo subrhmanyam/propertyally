@@ -2,20 +2,75 @@ import '../../../../core/base/base_provider.dart';
 import '../../data/repositories/leasing_repository.dart';
 import '../../domain/entities/leasing_unit.dart';
 
+/// Summary statistics for a single parent company.
+class CompanySummary {
+  const CompanySummary({
+    required this.name,
+    required this.units,
+  });
+
+  final String name;
+  final List<LeasingUnit> units;
+
+  int get totalUnits => units.length;
+  int get occupiedCount => units.where((u) => u.status == 'occupied').length;
+  int get vacantCount => units.where((u) => u.status == 'vacant').length;
+  int get inHouseCount => units.where((u) => u.status == 'in_house').length;
+  int get ownerOccupiedCount =>
+      units.where((u) => u.status == 'owner_occupied').length;
+  double get totalMonthlyRent => units.fold(0, (s, u) => s + u.totalRent);
+  double get totalSqft => units.fold(0, (s, u) => s + u.totalSqft);
+  double get occupancyRate =>
+      totalUnits == 0 ? 0 : occupiedCount / totalUnits * 100;
+}
+
 class LeasingProvider extends BaseProvider {
   LeasingProvider() : _repo = LeasingRepository();
 
   final LeasingRepository _repo;
 
   List<LeasingUnit> _units = [];
+  String? _selectedCompany;
   String _statusFilter = 'all';
   String _searchQuery = '';
 
   List<LeasingUnit> get units => _units;
+  String? get selectedCompany => _selectedCompany;
   String get statusFilter => _statusFilter;
 
+  // ── Company grouping ───────────────────────────────────────────────
+
+  List<CompanySummary> get companies {
+    final map = <String, List<LeasingUnit>>{};
+    for (final u in _units) {
+      map.putIfAbsent(u.companyName, () => []).add(u);
+    }
+    return map.entries
+        .map((e) => CompanySummary(name: e.key, units: e.value))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  CompanySummary? get selectedCompanySummary {
+    if (_selectedCompany == null) return null;
+    final match = companies.where((c) => c.name == _selectedCompany);
+    return match.isEmpty ? null : match.first;
+  }
+
+  void selectCompany(String? name) {
+    _selectedCompany = name;
+    _statusFilter = 'all';
+    _searchQuery = '';
+    notifyListeners();
+  }
+
+  // ── Filtered unit list (for the selected company view) ────────────
+
   List<LeasingUnit> get filtered {
-    var list = _units;
+    var list = _selectedCompany != null
+        ? _units.where((u) => u.companyName == _selectedCompany).toList()
+        : _units;
+
     if (_statusFilter != 'all') {
       list = list.where((u) => u.status == _statusFilter).toList();
     }
@@ -32,13 +87,15 @@ class LeasingProvider extends BaseProvider {
     return list;
   }
 
+  // ── KPI getters (whole portfolio) ─────────────────────────────────
+
   int get totalUnits => _units.length;
   int get occupiedCount => _units.where((u) => u.status == 'occupied').length;
   int get vacantCount => _units.where((u) => u.status == 'vacant').length;
-  double get totalMonthlyRent =>
-      _units.fold(0, (s, u) => s + u.totalRent);
-  double get totalSqft =>
-      _units.fold(0, (s, u) => s + u.totalSqft);
+  double get totalMonthlyRent => _units.fold(0, (s, u) => s + u.totalRent);
+  double get totalSqft => _units.fold(0, (s, u) => s + u.totalSqft);
+
+  // ── CRUD ──────────────────────────────────────────────────────────
 
   Future<void> load() async {
     await runAsync(() async {
@@ -75,8 +132,12 @@ class LeasingProvider extends BaseProvider {
     notifyListeners();
   }
 
-  void addImported(List<LeasingUnit> imported) {
-    _units = [...imported, ..._units];
+  /// Bulk-import units, tagging them with [companyName].
+  void addImported(List<LeasingUnit> imported, {required String companyName}) {
+    final tagged = imported
+        .map((u) => u.copyWith(companyName: companyName))
+        .toList();
+    _units = [...tagged, ..._units];
     notifyListeners();
   }
 }
