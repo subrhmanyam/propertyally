@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -66,7 +67,7 @@ class _TodayCardState extends State<TodayCard> {
                         WidgetSpan(
                           alignment: PlaceholderAlignment.middle,
                           child: GestureDetector(
-                            onTap: () {},
+                            onTap: () => context.go('/calendar'),
                             child: const Text(
                               AppStrings.viewAll,
                               style: TextStyle(
@@ -178,7 +179,7 @@ class _OnboardingCard extends StatelessWidget {
           ),
           const SizedBox(height: AppDimensions.spaceSM),
           GestureDetector(
-            onTap: () {},
+            onTap: () => context.go('/properties'),
             child: const Text(
               AppStrings.getStarted,
               style: TextStyle(

@@ -9,6 +9,7 @@ import '../../features/properties/presentation/screens/leasing_list_screen.dart'
 import '../../features/tenants/presentation/screens/tenant_list_screen.dart';
 import '../../features/listings/presentation/screens/listing_detail_screen.dart';
 import '../../features/listings/presentation/screens/listings_screen.dart';
+import '../../features/maintenance/presentation/screens/maintenance_screen.dart';
 import '../../features/tenants/presentation/screens/tenant_detail_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../constants/app_colors.dart';
@@ -83,8 +84,7 @@ class AppRouter {
             GoRoute(
               path: '/maintenance',
               name: 'maintenance',
-              pageBuilder: (_, s) => _page(s,
-                  const _ComingSoonScreen(title: 'Maintenance', icon: Icons.build_outlined)),
+              pageBuilder: (_, s) => _page(s, const MaintenanceScreen()),
             ),
             GoRoute(
               path: '/reports',

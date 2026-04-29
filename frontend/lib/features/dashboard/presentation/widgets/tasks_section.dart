@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -39,7 +40,7 @@ class TasksSection extends StatelessWidget {
                 const Spacer(),
                 // Add task
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () => context.go('/calendar'),
                   child: const Text(
                     AppStrings.addTask,
                     style: TextStyle(
@@ -52,7 +53,7 @@ class TasksSection extends StatelessWidget {
                 const SizedBox(width: AppDimensions.spaceSM),
                 // View all
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () => context.go('/calendar'),
                   child: const Text(
                     AppStrings.viewAll,
                     style: TextStyle(

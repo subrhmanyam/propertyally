@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'features/accounting/presentation/providers/accounting_provider.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/listings/presentation/providers/listings_provider.dart';
+import 'features/maintenance/presentation/providers/maintenance_provider.dart';
 import 'features/properties/presentation/providers/leasing_provider.dart';
 import 'features/properties/presentation/providers/properties_provider.dart';
 import 'features/tenants/presentation/providers/tenants_provider.dart';
@@ -34,6 +35,7 @@ class BogiPropertyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TenantsProvider()),
         ChangeNotifierProvider(create: (_) => AccountingProvider()),
         ChangeNotifierProvider(create: (_) => ListingsProvider()),
+        ChangeNotifierProvider(create: (_) => MaintenanceProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {

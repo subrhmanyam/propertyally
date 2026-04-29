@@ -35,6 +35,35 @@ class _AccountingScreenState extends State<AccountingScreen> {
     super.dispose();
   }
 
+  Future<void> _generateInvoices(AccountingProvider provider) async {
+    try {
+      final result = await provider.generateInvoices();
+      if (!mounted) return;
+      final created = result['created'] ?? 0;
+      final skipped = result['skipped_already_exists'] ?? 0;
+      final period = result['period'] ?? '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            created == 0
+                ? 'All invoices for $period already generated ($skipped leases)'
+                : '$created invoice${created == 1 ? '' : 's'} generated for $period'
+                    '${skipped > 0 ? ', $skipped already existed' : ''}',
+          ),
+          backgroundColor: created > 0 ? AppColors.success : AppColors.textMuted,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to generate invoices: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AccountingProvider>(
@@ -45,7 +74,10 @@ class _AccountingScreenState extends State<AccountingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Header(provider: provider),
+                _Header(
+                  provider: provider,
+                  onGenerate: () => _generateInvoices(provider),
+                ),
                 const SizedBox(height: AppDimensions.spaceLG),
 
                 _KpiRow(provider: provider),
@@ -81,9 +113,10 @@ class _AccountingScreenState extends State<AccountingScreen> {
 // ── Header ────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
-  const _Header({required this.provider});
+  const _Header({required this.provider, required this.onGenerate});
 
   final AccountingProvider provider;
+  final VoidCallback onGenerate;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +143,21 @@ class _Header extends StatelessWidget {
           ],
         ),
         const Spacer(),
+        if (provider.isGenerating)
+          const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGold),
+            ),
+          ),
+        AppButton(
+          label: 'Generate Invoices',
+          icon: Icons.receipt_outlined,
+          onPressed: provider.isGenerating ? null : onGenerate,
+        ),
+        const SizedBox(width: 8),
         AppButton(
           label: AppStrings.addTransaction,
           icon: Icons.add,
@@ -214,7 +262,7 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     final iconColor = data.isWarning
         ? AppColors.warning
         : data.positive
@@ -396,11 +444,11 @@ class _TransactionTable extends StatelessWidget {
             child: const Row(
               children: [
                 _TH(label: 'Date', flex: 2),
+                _TH(label: 'Invoice #', flex: 2),
                 _TH(label: 'Description', flex: 4),
                 _TH(label: 'Category', flex: 2),
-                _TH(label: 'Property', flex: 3),
                 _TH(label: 'Amount', flex: 2),
-                _TH(label: 'Status', flex: 2),
+                _TH(label: 'Status', flex: 3),
               ],
             ),
           ),
@@ -457,8 +505,10 @@ class _TransactionRowState extends State<_TransactionRow> {
   @override
   Widget build(BuildContext context) {
     final t = widget.transaction;
+    final provider = context.read<AccountingProvider>();
     final fmt = DateFormat('MMM d, yyyy');
-    final money = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final money = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final canMarkPaid = t.status != TransactionStatus.paid && t.type == TransactionType.income;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -485,6 +535,18 @@ class _TransactionRowState extends State<_TransactionRow> {
                 style: const TextStyle(
                   fontSize: AppDimensions.fontSM,
                   color: AppColors.textMuted,
+                ),
+              ),
+            ),
+            // Invoice #
+            Expanded(
+              flex: 2,
+              child: Text(
+                t.referenceNo ?? '—',
+                style: const TextStyle(
+                  fontSize: AppDimensions.fontSM,
+                  color: AppColors.textMuted,
+                  fontFamily: 'monospace',
                 ),
               ),
             ),
@@ -521,19 +583,6 @@ class _TransactionRowState extends State<_TransactionRow> {
                 ),
               ),
             ),
-            // Property
-            Expanded(
-              flex: 3,
-              child: Text(
-                t.propertyName ?? '—',
-                style: const TextStyle(
-                  fontSize: AppDimensions.fontBase,
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
             // Amount
             Expanded(
               flex: 2,
@@ -548,10 +597,36 @@ class _TransactionRowState extends State<_TransactionRow> {
                 ),
               ),
             ),
-            // Status badge
+            // Status + Mark Paid action
             Expanded(
-              flex: 2,
-              child: _StatusBadge(status: t.status),
+              flex: 3,
+              child: Row(
+                children: [
+                  _StatusBadge(status: t.status),
+                  if (canMarkPaid && _hovered) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => provider.markPaid(t.id),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.occupiedBg,
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
+                          border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+                        ),
+                        child: const Text(
+                          'Mark Paid',
+                          style: TextStyle(
+                            fontSize: AppDimensions.fontXS,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
@@ -570,10 +645,12 @@ class _TransactionCardList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('MMM d, yyyy');
-    final money = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final money = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final provider = context.read<AccountingProvider>();
 
     return Column(
       children: transactions.map((t) {
+        final canMarkPaid = t.status != TransactionStatus.paid && t.type == TransactionType.income;
         return Container(
           margin: const EdgeInsets.only(bottom: AppDimensions.spaceSM),
           decoration: BoxDecoration(
@@ -598,7 +675,7 @@ class _TransactionCardList extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             subtitle: Text(
-              '${t.category}  •  ${fmt.format(t.date)}',
+              '${t.referenceNo != null ? '${t.referenceNo}  •  ' : ''}${t.category}  •  ${fmt.format(t.date)}',
               style: const TextStyle(
                 fontSize: AppDimensions.fontSM,
                 color: AppColors.textMuted,
@@ -620,6 +697,20 @@ class _TransactionCardList extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 _StatusBadge(status: t.status),
+                if (canMarkPaid) ...[
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: () => provider.markPaid(t.id),
+                    child: const Text(
+                      'Mark Paid',
+                      style: TextStyle(
+                        fontSize: AppDimensions.fontXS,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.success,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -109,7 +110,7 @@ class _PropertyTileState extends State<_PropertyTile> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () {},
+        onTap: () => context.go('/properties'),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           color: _hovered ? AppColors.pageBg : Colors.transparent,

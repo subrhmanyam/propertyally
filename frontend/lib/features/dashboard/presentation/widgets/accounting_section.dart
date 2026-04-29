@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
@@ -113,7 +114,7 @@ class _ChartCard extends StatelessWidget {
                 ),
                 const SizedBox(width: AppDimensions.spaceSM),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () => context.go('/accounting'),
                   child: const Text(
                     AppStrings.viewAll,
                     style: TextStyle(
@@ -268,8 +269,12 @@ class _SummaryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '\$');
-    return Container(
+    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => context.go('/accounting'),
+        child: Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimensions.spaceMD,
@@ -301,6 +306,8 @@ class _SummaryTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }

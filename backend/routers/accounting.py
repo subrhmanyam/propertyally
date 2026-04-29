@@ -1,7 +1,9 @@
-"""Accounting router — transactions and rent schedules."""
+"""Accounting router — transactions, rent invoices, and KPIs."""
 
 from __future__ import annotations
 
+import json
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -30,6 +32,10 @@ class TransactionIn(BaseModel):
     lease_id: str | None = None
     reference_no: str | None = None
     notes: str | None = None
+
+
+class StatusPatch(BaseModel):
+    status: str  # paid | pending | overdue
 
 
 # ---------------------------------------------------------------------------
@@ -63,10 +69,10 @@ async def list_transactions(
 @router.get("/transactions/{transaction_id}")
 async def get_transaction(transaction_id: str) -> dict[str, Any]:
     sb = get_supabase()
-    res = sb.table("transactions").select("*").eq("id", transaction_id).single().execute()
+    res = sb.table("transactions").select("*").eq("id", transaction_id).limit(1).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return res.data
+    return res.data[0]
 
 
 @router.post("/transactions", status_code=201)
@@ -85,10 +91,140 @@ async def update_transaction(transaction_id: str, payload: TransactionIn) -> dic
     return res.data[0]
 
 
+@router.patch("/transactions/{transaction_id}/status")
+async def patch_transaction_status(transaction_id: str, body: StatusPatch) -> dict[str, Any]:
+    allowed = {"paid", "pending", "overdue"}
+    if body.status not in allowed:
+        raise HTTPException(status_code=400, detail=f"status must be one of {allowed}")
+    sb = get_supabase()
+    res = sb.table("transactions").update({"status": body.status}).eq("id", transaction_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return res.data[0]
+
+
 @router.delete("/transactions/{transaction_id}", status_code=204)
 async def delete_transaction(transaction_id: str) -> None:
     sb = get_supabase()
     sb.table("transactions").delete().eq("id", transaction_id).execute()
+
+
+# ---------------------------------------------------------------------------
+# Invoice generation
+# ---------------------------------------------------------------------------
+
+
+def _fiscal_year(d: date) -> str:
+    """Return Indian fiscal year string like '2025-26'."""
+    y = d.year if d.month >= 4 else d.year - 1
+    return f"{y}-{str(y + 1)[2:]}"
+
+
+@router.post("/invoices/generate", status_code=201)
+async def generate_monthly_invoices() -> dict[str, Any]:
+    """Generate pending rent invoices for all active leases for the current month.
+
+    Idempotent — skips any lease that already has a Rent transaction for this
+    calendar month (detected via the period field in notes JSON).
+    """
+    sb = get_supabase()
+    today = date.today()
+    period_key = today.strftime("%Y-%m")
+    fiscal_yr = _fiscal_year(today)
+    month_label = today.strftime("%B %Y")
+
+    # Fetch active leases whose date range covers today, with tenant + unit names
+    leases_resp = (
+        sb.table("leases")
+        .select("*, tenants(first_name, last_name), leasing_units(name)")
+        .eq("status", "active")
+        .lte("start_date", str(today))
+        .gte("end_date", str(today))
+        .execute()
+    )
+    leases: list[dict] = leases_resp.data or []
+
+    # Fetch all Rent transactions for this period to check duplicates in one query
+    existing_resp = (
+        sb.table("transactions")
+        .select("lease_id, notes")
+        .eq("type", "income")
+        .eq("category", "Rent")
+        .execute()
+    )
+    already_generated: set[str] = set()
+    for row in existing_resp.data or []:
+        try:
+            n = json.loads(row.get("notes") or "{}")
+            if n.get("period") == period_key and row.get("lease_id"):
+                already_generated.add(row["lease_id"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Count existing Rent invoices to build sequential invoice numbers
+    base_seq = len([r for r in existing_resp.data or [] if r.get("lease_id") not in already_generated]) + 1
+
+    created: list[dict] = []
+    skipped: list[str] = []
+
+    for i, lease in enumerate(leases):
+        lease_id = lease["id"]
+        if lease_id in already_generated:
+            skipped.append(lease_id)
+            continue
+
+        tenant = lease.get("tenants") or {}
+        unit = lease.get("leasing_units") or {}
+        tenant_name = f"{tenant.get('first_name', '')} {tenant.get('last_name', '')}".strip() or "Tenant"
+        unit_name = unit.get("name", "")
+
+        base_rent = float(lease.get("monthly_rent", 0))
+        cgst = round(base_rent * 0.09, 2)
+        sgst = round(base_rent * 0.09, 2)
+        total_with_gst = round(base_rent + cgst + sgst, 2)
+
+        invoice_no = f"BG/{fiscal_yr}/{base_seq + len(created):04d}"
+        due_date = date(today.year, today.month, 1)
+        # 5-day grace period — mark overdue only after 5th
+        is_overdue = today.day > 5
+
+        notes_payload = json.dumps({
+            "period": period_key,
+            "invoice_no": invoice_no,
+            "base_rent": base_rent,
+            "cgst_9pct": cgst,
+            "sgst_9pct": sgst,
+            "total_with_gst": total_with_gst,
+            "fiscal_year": fiscal_yr,
+        })
+
+        tx = {
+            "type": "income",
+            "category": "Rent",
+            "amount": base_rent,
+            "currency": "INR",
+            "date": str(due_date),
+            "description": f"Rent Invoice — {tenant_name} — {unit_name} — {month_label}",
+            "status": "overdue" if is_overdue else "pending",
+            "leasing_unit_id": lease.get("leasing_unit_id"),
+            "tenant_id": lease.get("tenant_id"),
+            "lease_id": lease_id,
+            "reference_no": invoice_no,
+            "notes": notes_payload,
+        }
+
+        result = sb.table("transactions").insert(tx).execute()
+        if result.data:
+            created.append(result.data[0])
+
+    return {
+        "period": period_key,
+        "fiscal_year": fiscal_yr,
+        "active_leases": len(leases),
+        "created": len(created),
+        "skipped_already_exists": len(skipped),
+        "invoices": created,
+    }
 
 
 # ---------------------------------------------------------------------------
