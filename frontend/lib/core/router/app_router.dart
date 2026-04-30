@@ -5,13 +5,20 @@ import '../../features/accounting/presentation/screens/accounting_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
-import '../../features/properties/presentation/screens/leasing_list_screen.dart';
-import '../../features/tenants/presentation/screens/tenant_list_screen.dart';
 import '../../features/listings/presentation/screens/listing_detail_screen.dart';
 import '../../features/listings/presentation/screens/listings_screen.dart';
 import '../../features/maintenance/presentation/screens/maintenance_screen.dart';
+import '../../features/services/presentation/screens/admin_services_screen.dart';
+import '../../features/properties/presentation/screens/leasing_list_screen.dart';
+import '../../features/tenant/presentation/screens/tenant_home_screen.dart';
+import '../../features/tenant/presentation/screens/tenant_invoices_screen.dart';
+import '../../features/tenant/presentation/screens/tenant_maintenance_screen.dart';
+import '../../features/tenant/presentation/screens/tenant_messages_screen.dart';
+import '../../features/tenant/presentation/screens/tenant_services_screen.dart';
 import '../../features/tenants/presentation/screens/tenant_detail_screen.dart';
+import '../../features/tenants/presentation/screens/tenant_list_screen.dart';
 import '../../shared/widgets/app_shell.dart';
+import '../../shared/widgets/tenant_shell.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_strings.dart';
@@ -22,32 +29,41 @@ class AppRouter {
   static Page<void> _page(GoRouterState state, Widget child) =>
       NoTransitionPage(key: state.pageKey, child: child);
 
-  /// Build a router that is aware of authentication state.
   static GoRouter build(AuthProvider authProvider) {
     return GoRouter(
       initialLocation: '/',
       debugLogDiagnostics: false,
       refreshListenable: authProvider,
 
-      // ── Auth redirect guard ──────────────────────────────────────
+      // ── Auth + role redirect ─────────────────────────────────────
       redirect: (context, state) {
         final loggedIn = authProvider.isAuthenticated;
-        final goingToLogin = state.matchedLocation == '/login';
+        final isTenant = authProvider.isTenant;
+        final loc = state.matchedLocation;
+        final goingToLogin = loc == '/login';
+        final goingToTenant = loc.startsWith('/tenant');
+        final goingToAdmin = !goingToLogin && !goingToTenant;
 
         if (!loggedIn && !goingToLogin) return '/login';
-        if (loggedIn && goingToLogin) return '/';
+        if (loggedIn && goingToLogin) {
+          return isTenant ? '/tenant' : '/';
+        }
+        // Tenant trying to access admin routes
+        if (loggedIn && isTenant && goingToAdmin) return '/tenant';
+        // Admin trying to access tenant routes
+        if (loggedIn && !isTenant && goingToTenant) return '/';
         return null;
       },
 
       routes: [
-        // ── Login (outside shell) ──────────────────────────────────
+        // ── Login ─────────────────────────────────────────────────
         GoRoute(
           path: '/login',
           name: 'login',
           pageBuilder: (_, s) => _page(s, const LoginScreen()),
         ),
 
-        // ── App shell (all authenticated routes) ───────────────────
+        // ── Admin shell ───────────────────────────────────────────
         ShellRoute(
           builder: (context, state, child) => AppShell(child: child),
           routes: [
@@ -87,6 +103,11 @@ class AppRouter {
               pageBuilder: (_, s) => _page(s, const MaintenanceScreen()),
             ),
             GoRoute(
+              path: '/services',
+              name: 'services',
+              pageBuilder: (_, s) => _page(s, const AdminServicesScreen()),
+            ),
+            GoRoute(
               path: '/reports',
               name: 'reports',
               pageBuilder: (_, s) => _page(s,
@@ -116,6 +137,39 @@ class AppRouter {
               name: 'documents',
               pageBuilder: (_, s) => _page(s,
                   const _ComingSoonScreen(title: 'Documents', icon: Icons.description_outlined)),
+            ),
+          ],
+        ),
+
+        // ── Tenant shell ──────────────────────────────────────────
+        ShellRoute(
+          builder: (context, state, child) => TenantShell(child: child),
+          routes: [
+            GoRoute(
+              path: '/tenant',
+              name: 'tenant-home',
+              pageBuilder: (_, s) => _page(s, const TenantHomeScreen()),
+            ),
+            GoRoute(
+              path: '/tenant/invoices',
+              name: 'tenant-invoices',
+              pageBuilder: (_, s) => _page(s, const TenantInvoicesScreen()),
+            ),
+            GoRoute(
+              path: '/tenant/services',
+              name: 'tenant-services',
+              pageBuilder: (_, s) => _page(s, const TenantServicesScreen()),
+            ),
+            GoRoute(
+              path: '/tenant/maintenance',
+              name: 'tenant-maintenance',
+              pageBuilder: (_, s) =>
+                  _page(s, const TenantMaintenanceScreen()),
+            ),
+            GoRoute(
+              path: '/tenant/messages',
+              name: 'tenant-messages',
+              pageBuilder: (_, s) => _page(s, const TenantMessagesScreen()),
             ),
           ],
         ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_strings.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
   const TopBar({super.key, this.onMenuTap});
@@ -118,30 +120,92 @@ class _TopBarIconBtn extends StatelessWidget {
 class _UserChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          AppStrings.userName,
-          style: const TextStyle(
-            fontSize: AppDimensions.fontBase,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        final email = auth.userEmail;
+        final initial = email.isNotEmpty ? email[0].toUpperCase() : 'A';
+
+        return PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'signout') auth.signOut();
+          },
+          color: AppColors.cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
+            side: const BorderSide(color: AppColors.border),
           ),
-        ),
-        const SizedBox(width: AppDimensions.spaceSM),
-        CircleAvatar(
-          radius: AppDimensions.avatarSM / 2,
-          backgroundColor: AppColors.accentGreen,
-          child: const Text(
-            'M',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: AppDimensions.fontSM,
-              fontWeight: FontWeight.w600,
+          offset: const Offset(0, 40),
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              enabled: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      fontSize: AppDimensions.fontSM,
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    auth.userRole.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'signout',
+              child: Row(
+                children: [
+                  Icon(Icons.logout_outlined,
+                      size: AppDimensions.iconMD, color: AppColors.textMuted),
+                  SizedBox(width: AppDimensions.spaceSM),
+                  Text('Sign out',
+                      style: TextStyle(
+                          fontSize: AppDimensions.fontBase,
+                          color: AppColors.textPrimary)),
+                ],
+              ),
+            ),
+          ],
+          child: Row(
+            children: [
+              Text(
+                email.split('@').first,
+                style: const TextStyle(
+                  fontSize: AppDimensions.fontBase,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: AppDimensions.spaceSM),
+              CircleAvatar(
+                radius: AppDimensions.avatarSM / 2,
+                backgroundColor: AppColors.accentGold,
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: AppColors.bgOuter,
+                    fontSize: AppDimensions.fontSM,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down,
+                  size: 16, color: AppColors.textMuted),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

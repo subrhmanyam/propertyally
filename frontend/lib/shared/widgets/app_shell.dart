@@ -64,6 +64,7 @@ class AppShell extends StatelessWidget {
     if (location.startsWith('/tenants')) return NavItem.tenants;
     if (location.startsWith('/accounting')) return NavItem.accounting;
     if (location.startsWith('/maintenance')) return NavItem.maintenance;
+    if (location.startsWith('/services')) return NavItem.services;
     if (location.startsWith('/reports')) return NavItem.reports;
     if (location.startsWith('/listings')) return NavItem.listings;
     if (location.startsWith('/calendar')) return NavItem.calendar;
@@ -77,6 +78,7 @@ class AppShell extends StatelessWidget {
         NavItem.tenants => '/tenants',
         NavItem.accounting => '/accounting',
         NavItem.maintenance => '/maintenance',
+        NavItem.services => '/services',
         NavItem.reports => '/reports',
         NavItem.listings => '/listings',
         NavItem.calendar => '/calendar',

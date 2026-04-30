@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
 
 enum NavItem {
   dashboard,
@@ -9,6 +11,7 @@ enum NavItem {
   tenants,
   accounting,
   maintenance,
+  services,
   calendar,
   documents,
   listings,
@@ -87,6 +90,13 @@ class SidebarNav extends StatelessWidget {
             tooltip: 'Maintenance',
           ),
           _NavIconButton(
+            icon: Icons.home_repair_service_outlined,
+            item: NavItem.services,
+            active: activeItem == NavItem.services,
+            onTap: onItemTap,
+            tooltip: 'Services',
+          ),
+          _NavIconButton(
             icon: Icons.calendar_month_outlined,
             item: NavItem.calendar,
             active: activeItem == NavItem.calendar,
@@ -115,6 +125,13 @@ class SidebarNav extends StatelessWidget {
             icon: Icons.cloud_upload_outlined,
             onTap: () {},
             tooltip: 'Sync',
+          ),
+          Consumer<AuthProvider>(
+            builder: (context, auth, _) => _SidebarIconBtn(
+              icon: Icons.logout_outlined,
+              onTap: () => auth.signOut(),
+              tooltip: 'Sign out',
+            ),
           ),
           const SizedBox(height: AppDimensions.spaceMD),
         ],
@@ -245,9 +262,13 @@ class _SidebarIconBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: IconButton(
-        icon: Icon(icon, color: AppColors.sidebarIcon, size: AppDimensions.iconMD),
-        onPressed: onTap,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimensions.spaceSM),
+          child: Icon(icon, color: AppColors.sidebarIcon, size: AppDimensions.iconMD),
+        ),
       ),
     );
   }
