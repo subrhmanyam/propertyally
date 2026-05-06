@@ -1,65 +1,50 @@
 """
-Unified notification service — Email (SendGrid), SMS (Twilio), WhatsApp (Twilio), In-app.
+NotificationService — orchestrates Email, SMS, WhatsApp, and in-app channels.
 
-Env vars required:
-    SENDGRID_API_KEY         — SendGrid API key
-    SENDGRID_FROM_EMAIL      — verified sender address  (default: noreply@bogineni.com)
-    SENDGRID_FROM_NAME       — sender display name       (default: Bogineni Group)
-    TWILIO_ACCOUNT_SID       — Twilio account SID
-    TWILIO_AUTH_TOKEN        — Twilio auth token
-    TWILIO_PHONE_NUMBER      — E.164 Twilio phone for SMS  (e.g. +14155552671)
-    TWILIO_WHATSAPP_NUMBER   — Twilio WhatsApp sender      (e.g. whatsapp:+14155238886)
+Providers are injected at construction time (or auto-created from env vars).
+Swap providers without touching this file: set EMAIL_PROVIDER / SMS_PROVIDER.
 
-Any missing credentials cause the corresponding channel to be skipped gracefully.
+    EMAIL_PROVIDER = "sendgrid" (default) | "aws_ses"
+    SMS_PROVIDER   = "msg91"    (default) | "twilio"
+
+Usage
+─────
+    svc = get_notification_service()          # singleton, auto-configured
+
+    # single channel
+    await svc.send_email(to_email="x@y.com", subject="Hi", html_body="<p>Hi</p>")
+    await svc.send_sms(to_phone="+919876543210", body="Hello!")
+    await svc.send_whatsapp(to_phone="+919876543210", body="Hello!")
+
+    # multi-channel in one call (runs concurrently)
+    result = await svc.dispatch(
+        channels=[Channel.EMAIL, Channel.SMS, Channel.WHATSAPP],
+        to_email="x@y.com", to_name="Ramesh", subject="Invoice",
+        html_body="<p>…</p>", text_body="…",
+        to_phone="+919876543210", sms_body="…", whatsapp_body="…",
+    )
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
-import os
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any
 
-import httpx
-
 from db import get_supabase
+from services.providers import (
+    Channel, DeliveryResult, DeliveryStatus,
+    EmailProvider, SmsProvider, WhatsAppProvider,
+    make_email_provider, make_sms_provider, make_whatsapp_provider,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Value objects
+# Multi-channel result wrapper
 # ---------------------------------------------------------------------------
-
-class Channel(str, Enum):
-    EMAIL = "email"
-    SMS = "sms"
-    WHATSAPP = "whatsapp"
-    IN_APP = "in_app"
-
-
-class DeliveryStatus(str, Enum):
-    SENT = "sent"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
-
-@dataclass
-class DeliveryResult:
-    channel: Channel
-    status: DeliveryStatus
-    provider_ref: str | None = None
-    error: str | None = None
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "channel": self.channel.value,
-            "status": self.status.value,
-            "provider_ref": self.provider_ref,
-            "error": self.error,
-        }
-
 
 @dataclass
 class MultiDeliveryResult:
@@ -84,20 +69,25 @@ class MultiDeliveryResult:
 # ---------------------------------------------------------------------------
 
 class NotificationService:
-    """Delivers notifications across Email, SMS, WhatsApp, and in-app channels."""
+    """
+    Orchestrates notification delivery across multiple channels.
 
-    def __init__(self) -> None:
-        self._sg_key = os.getenv("SENDGRID_API_KEY", "")
-        self._sg_from = os.getenv("SENDGRID_FROM_EMAIL", "noreply@bogineni.com")
-        self._sg_name = os.getenv("SENDGRID_FROM_NAME", "Bogineni Group")
+    Providers are injected — pass custom instances for testing or
+    leave None to auto-create from env vars via the factory functions.
+    """
 
-        self._tw_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
-        self._tw_token = os.getenv("TWILIO_AUTH_TOKEN", "")
-        self._tw_phone = os.getenv("TWILIO_PHONE_NUMBER", "")
-        self._tw_wa = os.getenv("TWILIO_WHATSAPP_NUMBER", "")  # whatsapp:+14155238886
+    def __init__(
+        self,
+        email_provider: EmailProvider | None = None,
+        sms_provider: SmsProvider | None = None,
+        whatsapp_provider: WhatsAppProvider | None = None,
+    ) -> None:
+        self._email = email_provider or make_email_provider()
+        self._sms = sms_provider or make_sms_provider()
+        self._whatsapp = whatsapp_provider or make_whatsapp_provider()
 
     # ------------------------------------------------------------------
-    # Email via SendGrid
+    # Single-channel sends (thin delegation to the injected provider)
     # ------------------------------------------------------------------
 
     async def send_email(
@@ -109,127 +99,16 @@ class NotificationService:
         html_body: str,
         text_body: str | None = None,
     ) -> DeliveryResult:
-        if not self._sg_key:
-            logger.warning("SENDGRID_API_KEY not set — skipping email to %s", to_email)
-            return DeliveryResult(Channel.EMAIL, DeliveryStatus.SKIPPED,
-                                  error="SENDGRID_API_KEY not configured")
+        return await self._email.send(
+            to_email=to_email, to_name=to_name,
+            subject=subject, html_body=html_body, text_body=text_body,
+        )
 
-        content: list[dict] = []
-        if text_body:
-            content.append({"type": "text/plain", "value": text_body})
-        content.append({"type": "text/html", "value": html_body})
+    async def send_sms(self, *, to_phone: str, body: str) -> DeliveryResult:
+        return await self._sms.send(to_phone=to_phone, body=body)
 
-        payload = {
-            "personalizations": [{"to": [{"email": to_email, "name": to_name}]}],
-            "from": {"email": self._sg_from, "name": self._sg_name},
-            "subject": subject,
-            "content": content,
-        }
-
-        try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.post(
-                    "https://api.sendgrid.com/v3/mail/send",
-                    json=payload,
-                    headers={"Authorization": f"Bearer {self._sg_key}"},
-                )
-        except httpx.RequestError as exc:
-            return DeliveryResult(Channel.EMAIL, DeliveryStatus.FAILED, error=str(exc))
-
-        if resp.status_code in (200, 202):
-            ref = resp.headers.get("X-Message-Id", "")
-            logger.info("Email sent to %s — msg_id=%s", to_email, ref)
-            return DeliveryResult(Channel.EMAIL, DeliveryStatus.SENT, provider_ref=ref)
-
-        logger.error("SendGrid error %s: %s", resp.status_code, resp.text[:300])
-        return DeliveryResult(Channel.EMAIL, DeliveryStatus.FAILED,
-                              error=f"HTTP {resp.status_code}: {resp.text[:200]}")
-
-    # ------------------------------------------------------------------
-    # SMS via Twilio
-    # ------------------------------------------------------------------
-
-    async def send_sms(
-        self,
-        *,
-        to_phone: str,
-        body: str,
-    ) -> DeliveryResult:
-        if not (self._tw_sid and self._tw_token and self._tw_phone):
-            logger.warning("Twilio SMS not configured — skipping SMS to %s", to_phone)
-            return DeliveryResult(Channel.SMS, DeliveryStatus.SKIPPED,
-                                  error="Twilio SMS credentials not configured")
-
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{self._tw_sid}/Messages.json"
-        try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.post(
-                    url,
-                    data={"To": to_phone, "From": self._tw_phone, "Body": body},
-                    auth=(self._tw_sid, self._tw_token),
-                )
-        except httpx.RequestError as exc:
-            return DeliveryResult(Channel.SMS, DeliveryStatus.FAILED, error=str(exc))
-
-        result = resp.json()
-        if resp.status_code == 201:
-            logger.info("SMS sent to %s — sid=%s", to_phone, result.get("sid"))
-            return DeliveryResult(Channel.SMS, DeliveryStatus.SENT,
-                                  provider_ref=result.get("sid"))
-
-        err = result.get("message") or resp.text[:200]
-        logger.error("Twilio SMS error %s: %s", resp.status_code, err)
-        return DeliveryResult(Channel.SMS, DeliveryStatus.FAILED, error=err)
-
-    # ------------------------------------------------------------------
-    # WhatsApp via Twilio WhatsApp API
-    # ------------------------------------------------------------------
-
-    async def send_whatsapp(
-        self,
-        *,
-        to_phone: str,
-        body: str,
-    ) -> DeliveryResult:
-        """
-        Send a WhatsApp message via Twilio.
-
-        `to_phone` should be in E.164 format, e.g. +919876543210.
-        The Twilio sandbox number must be joined by the recipient first:
-          https://www.twilio.com/console/sms/whatsapp/sandbox
-        For production, use an approved WhatsApp Business sender.
-        """
-        if not (self._tw_sid and self._tw_token and self._tw_wa):
-            logger.warning("Twilio WhatsApp not configured — skipping WA to %s", to_phone)
-            return DeliveryResult(Channel.WHATSAPP, DeliveryStatus.SKIPPED,
-                                  error="Twilio WhatsApp credentials not configured")
-
-        to_wa = to_phone if to_phone.startswith("whatsapp:") else f"whatsapp:{to_phone}"
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{self._tw_sid}/Messages.json"
-
-        try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.post(
-                    url,
-                    data={"To": to_wa, "From": self._tw_wa, "Body": body},
-                    auth=(self._tw_sid, self._tw_token),
-                )
-        except httpx.RequestError as exc:
-            return DeliveryResult(Channel.WHATSAPP, DeliveryStatus.FAILED, error=str(exc))
-
-        result = resp.json()
-        if resp.status_code == 201:
-            logger.info("WhatsApp sent to %s — sid=%s", to_phone, result.get("sid"))
-            return DeliveryResult(Channel.WHATSAPP, DeliveryStatus.SENT,
-                                  provider_ref=result.get("sid"))
-
-        err = result.get("message") or resp.text[:200]
-        logger.error("Twilio WA error %s: %s", resp.status_code, err)
-        return DeliveryResult(Channel.WHATSAPP, DeliveryStatus.FAILED, error=err)
-
-    # ------------------------------------------------------------------
-    # In-app notification (persisted to Supabase)
-    # ------------------------------------------------------------------
+    async def send_whatsapp(self, *, to_phone: str, body: str) -> DeliveryResult:
+        return await self._whatsapp.send(to_phone=to_phone, body=body)
 
     def send_in_app(
         self,
@@ -256,28 +135,28 @@ class NotificationService:
             ref = res.data[0]["id"] if res.data else None
             return DeliveryResult(Channel.IN_APP, DeliveryStatus.SENT, provider_ref=ref)
         except Exception as exc:
-            logger.error("In-app insert failed: %s", exc)
+            logger.error("[in_app] Insert failed: %s", exc)
             return DeliveryResult(Channel.IN_APP, DeliveryStatus.FAILED, error=str(exc))
 
     # ------------------------------------------------------------------
-    # Multi-channel dispatch
+    # Multi-channel dispatch  (async channels run concurrently)
     # ------------------------------------------------------------------
 
     async def dispatch(
         self,
         *,
         channels: list[Channel],
-        # Email fields
+        # Email
         to_email: str | None = None,
         to_name: str = "",
         subject: str = "",
         html_body: str = "",
         text_body: str | None = None,
-        # SMS / WhatsApp fields
+        # SMS / WhatsApp
         to_phone: str | None = None,
         sms_body: str = "",
         whatsapp_body: str = "",
-        # In-app fields
+        # In-app
         user_id: str | None = None,
         in_app_title: str = "",
         in_app_body: str = "",
@@ -285,28 +164,29 @@ class NotificationService:
         action_url: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> MultiDeliveryResult:
-        """Send across all specified channels concurrently."""
-        import asyncio
-
         result = MultiDeliveryResult()
-        tasks = []
+        async_tasks = []
 
         if Channel.EMAIL in channels and to_email:
-            tasks.append(self.send_email(
+            async_tasks.append(self.send_email(
                 to_email=to_email, to_name=to_name,
                 subject=subject, html_body=html_body, text_body=text_body,
             ))
 
         if Channel.SMS in channels and to_phone:
-            tasks.append(self.send_sms(to_phone=to_phone, body=sms_body or text_body or ""))
+            async_tasks.append(self.send_sms(
+                to_phone=to_phone, body=sms_body or text_body or "",
+            ))
 
         if Channel.WHATSAPP in channels and to_phone:
-            tasks.append(self.send_whatsapp(to_phone=to_phone, body=whatsapp_body or sms_body or ""))
+            async_tasks.append(self.send_whatsapp(
+                to_phone=to_phone, body=whatsapp_body or sms_body or "",
+            ))
 
-        async_results = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in async_results:
+        gathered = await asyncio.gather(*async_tasks, return_exceptions=True)
+        for r in gathered:
             if isinstance(r, Exception):
-                logger.error("Dispatch task raised: %s", r)
+                logger.error("[dispatch] Channel task raised: %s", r)
             else:
                 result.add(r)
 
@@ -321,6 +201,19 @@ class NotificationService:
             ))
 
         return result
+
+    # ------------------------------------------------------------------
+    # Introspection
+    # ------------------------------------------------------------------
+
+    def provider_info(self) -> dict[str, str]:
+        """Returns the active provider name for each channel — useful for /health."""
+        return {
+            "email": self._email.name,
+            "sms": self._sms.name,
+            "whatsapp": self._whatsapp.name,
+            "in_app": "supabase",
+        }
 
 
 # ---------------------------------------------------------------------------

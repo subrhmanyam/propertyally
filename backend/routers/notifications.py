@@ -36,8 +36,9 @@ from pydantic import BaseModel
 
 from db import get_supabase
 from services.notification_service import (
-    Channel, get_notification_service,
+    get_notification_service,
 )
+from services.providers import Channel
 from services.notification_templates import render as render_template, list_event_types
 
 logger = logging.getLogger(__name__)
@@ -245,6 +246,12 @@ async def send_all(req: SendAllRequest) -> dict[str, Any]:
 @router.get("/templates")
 async def get_templates() -> list[str]:
     return list_event_types()
+
+
+@router.get("/providers")
+async def get_providers() -> dict[str, str]:
+    """Returns the active provider for each channel — useful for verifying config."""
+    return get_notification_service().provider_info()
 
 
 @router.post("/dispatch")
