@@ -10,7 +10,9 @@ import '../../../../core/utils/excel_importer.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../invoices/presentation/invoice_generator_dialog.dart';
 import '../../../listings/presentation/providers/listings_provider.dart';
+import '../widgets/unit_agreement_dialog.dart';
 import '../../../listings/presentation/widgets/platform_picker_dialog.dart';
 import '../../domain/entities/leasing_unit.dart';
 import '../providers/leasing_provider.dart';
@@ -207,6 +209,19 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     }
   }
 
+  void _generateInvoice(LeasingUnit unit) {
+    InvoiceGeneratorDialog.show(context, unit);
+  }
+
+  void _viewAgreement(LeasingUnit unit) {
+    UnitAgreementDialog.show(
+      context,
+      unitId: unit.id,
+      unitName: unit.name,
+      isAdmin: true,
+    );
+  }
+
   Future<void> _publishUnit(LeasingUnit unit) async {
     final selected = await PlatformPickerDialog.show(context, unit.id);
     if (selected == null || selected.isEmpty || !mounted) return;
@@ -277,6 +292,8 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
             onEdit: _openEdit,
             onDelete: _confirmDelete,
             onPublish: _publishUnit,
+            onGenerateInvoice: _generateInvoice,
+            onViewAgreement: _viewAgreement,
           );
         }
         // Otherwise → show company portfolio cards
@@ -658,6 +675,8 @@ class _UnitsView extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onPublish,
+    required this.onGenerateInvoice,
+    required this.onViewAgreement,
   });
 
   final LeasingProvider provider;
@@ -668,6 +687,8 @@ class _UnitsView extends StatelessWidget {
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
   final ValueChanged<LeasingUnit> onPublish;
+  final ValueChanged<LeasingUnit> onGenerateInvoice;
+  final ValueChanged<LeasingUnit> onViewAgreement;
 
   @override
   Widget build(BuildContext context) {
@@ -786,6 +807,8 @@ class _UnitsView extends StatelessWidget {
                 onEdit: onEdit,
                 onDelete: onDelete,
                 onPublish: onPublish,
+                onGenerateInvoice: onGenerateInvoice,
+                onViewAgreement: onViewAgreement,
               )
             else
               _UnitTable(
@@ -793,6 +816,8 @@ class _UnitsView extends StatelessWidget {
                 onEdit: onEdit,
                 onDelete: onDelete,
                 onPublish: onPublish,
+                onGenerateInvoice: onGenerateInvoice,
+                onViewAgreement: onViewAgreement,
               ),
           ],
         ),
@@ -955,12 +980,16 @@ class _UnitTable extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onPublish,
+    required this.onGenerateInvoice,
+    required this.onViewAgreement,
   });
 
   final List<LeasingUnit> units;
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
   final ValueChanged<LeasingUnit> onPublish;
+  final ValueChanged<LeasingUnit> onGenerateInvoice;
+  final ValueChanged<LeasingUnit> onViewAgreement;
 
   @override
   Widget build(BuildContext context) {
@@ -1000,6 +1029,8 @@ class _UnitTable extends StatelessWidget {
                 onEdit: onEdit,
                 onDelete: onDelete,
                 onPublish: onPublish,
+                onGenerateInvoice: onGenerateInvoice,
+                onViewAgreement: onViewAgreement,
               )),
         ],
       ),
@@ -1037,6 +1068,8 @@ class _UnitRow extends StatefulWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onPublish,
+    required this.onGenerateInvoice,
+    required this.onViewAgreement,
   });
 
   final LeasingUnit unit;
@@ -1044,6 +1077,8 @@ class _UnitRow extends StatefulWidget {
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
   final ValueChanged<LeasingUnit> onPublish;
+  final ValueChanged<LeasingUnit> onGenerateInvoice;
+  final ValueChanged<LeasingUnit> onViewAgreement;
 
   @override
   State<_UnitRow> createState() => _UnitRowState();
@@ -1138,6 +1173,23 @@ class _UnitRowState extends State<_UnitRow> {
                           onTap: () => widget.onPublish(u),
                         ),
                       ),
+                    if (u.status == 'occupied' || u.status == 'in_house')
+                      Tooltip(
+                        message: 'Generate Invoice',
+                        child: _ActionBtn(
+                          icon: Icons.receipt_long_outlined,
+                          color: AppColors.accentGold,
+                          onTap: () => widget.onGenerateInvoice(u),
+                        ),
+                      ),
+                    Tooltip(
+                      message: 'Agreement Details',
+                      child: _ActionBtn(
+                        icon: Icons.info_outline_rounded,
+                        color: AppColors.info,
+                        onTap: () => widget.onViewAgreement(u),
+                      ),
+                    ),
                     _ActionBtn(icon: Icons.edit_outlined, onTap: () => widget.onEdit(u)),
                     _ActionBtn(
                         icon: Icons.delete_outline,
@@ -1183,12 +1235,16 @@ class _UnitCardList extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onPublish,
+    required this.onGenerateInvoice,
+    required this.onViewAgreement,
   });
 
   final List<LeasingUnit> units;
   final ValueChanged<LeasingUnit> onEdit;
   final ValueChanged<LeasingUnit> onDelete;
   final ValueChanged<LeasingUnit> onPublish;
+  final ValueChanged<LeasingUnit> onGenerateInvoice;
+  final ValueChanged<LeasingUnit> onViewAgreement;
 
   @override
   Widget build(BuildContext context) {
@@ -1238,6 +1294,20 @@ class _UnitCardList extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                     ],
+                    if (u.status == 'occupied' || u.status == 'in_house') ...[
+                      GestureDetector(
+                        onTap: () => onGenerateInvoice(u),
+                        child: const Icon(Icons.receipt_long_outlined,
+                            size: 16, color: AppColors.accentGold),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    GestureDetector(
+                      onTap: () => onViewAgreement(u),
+                      child: const Icon(Icons.info_outline_rounded,
+                          size: 16, color: AppColors.info),
+                    ),
+                    const SizedBox(width: 6),
                     _StatusBadge(status: u.status),
                   ],
                 ),
