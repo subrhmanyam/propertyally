@@ -104,7 +104,6 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
       final res = await ApiClient.properties.post(
         '/api/v1/leasing/${widget.unitId}/agreement',
         data: formData,
-        options: Options(contentType: 'multipart/form-data'),
       );
       setState(() {
         _agreement = UnitAgreement.fromJson(res.data as Map<String, dynamic>);

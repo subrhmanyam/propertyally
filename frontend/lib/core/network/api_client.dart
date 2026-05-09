@@ -5,12 +5,14 @@ import 'interceptors/error_interceptor.dart';
 
 class ApiConfig {
   ApiConfig._();
-  static const String baseUrl = 'http://localhost';
-  static const String propertiesBaseUrl = 'http://localhost:8002';
-  static const String tenantsBaseUrl = 'http://localhost:8002';
-  static const String accountingBaseUrl = 'http://localhost:8002';
-  static const String maintenanceBaseUrl = 'http://localhost:8002';
-  static const String reportsBaseUrl = 'http://localhost:8002';
+  // Unified FastAPI backend — all services run on port 8000
+  static const String _backend = 'http://localhost:8000';
+  static const String baseUrl = _backend;
+  static const String propertiesBaseUrl = _backend;
+  static const String tenantsBaseUrl = _backend;
+  static const String accountingBaseUrl = _backend;
+  static const String maintenanceBaseUrl = _backend;
+  static const String reportsBaseUrl = _backend;
 }
 
 class ApiClient {
@@ -24,7 +26,8 @@ class ApiClient {
         baseUrl: baseUrl,
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 30),
-        headers: {'Content-Type': 'application/json'},
+        // Do not set Content-Type globally — Dio sets it per-request
+        // (JSON for regular calls, multipart/form-data with boundary for uploads)
       ),
     );
     dio.interceptors.addAll([
