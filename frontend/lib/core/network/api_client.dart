@@ -5,8 +5,11 @@ import 'interceptors/error_interceptor.dart';
 
 class ApiConfig {
   ApiConfig._();
-  // Unified FastAPI backend — all services run on port 8000
-  static const String _backend = 'http://localhost:8000';
+  // In production: flutter build web --dart-define=BACKEND_URL=https://your-backend.onrender.com
+  static const String _backend = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: 'http://localhost:8000',
+  );
   static const String baseUrl = _backend;
   static const String propertiesBaseUrl = _backend;
   static const String tenantsBaseUrl = _backend;
