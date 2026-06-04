@@ -35,6 +35,11 @@ dependencies:
   excel: ^4.0.6
   # URL launcher for opening external platform links
   url_launcher: ^6.3.0
+  # PDF generation and printing
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  # Persistent settings storage
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:

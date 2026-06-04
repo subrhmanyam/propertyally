@@ -13,6 +13,7 @@ import 'features/properties/presentation/providers/leasing_provider.dart';
 import 'features/tenant/presentation/providers/tenant_provider.dart';
 import 'features/properties/presentation/providers/properties_provider.dart';
 import 'features/tenants/presentation/providers/tenants_provider.dart';
+import 'features/invoices/providers/invoice_settings_provider.dart';
 import 'core/router/app_router.dart';
 
 Future<void> main() async {
@@ -40,6 +41,7 @@ class BogiPropertyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MaintenanceProvider()),
         ChangeNotifierProvider(create: (_) => TenantProvider()),
         ChangeNotifierProvider(create: (_) => ServicesProvider()),
+        ChangeNotifierProvider(create: (_) => InvoiceSettingsProvider()..load()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
