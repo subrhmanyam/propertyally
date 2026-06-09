@@ -8,6 +8,7 @@ class AppStrings {
   static const String navTenants      = 'Tenants';
   static const String navAccounting   = 'Accounting';
   static const String navMaintenance  = 'Maintenance';
+  static const String navTasks        = 'Tasks';
   static const String navCalendar     = 'Calendar';
   static const String navDocuments    = 'Documents';
   static const String navListings     = 'Listings';

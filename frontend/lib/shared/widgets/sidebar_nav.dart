@@ -11,6 +11,7 @@ enum NavItem {
   tenants,
   accounting,
   maintenance,
+  tasks,
   services,
   calendar,
   documents,
@@ -88,6 +89,13 @@ class SidebarNav extends StatelessWidget {
             active: activeItem == NavItem.maintenance,
             onTap: onItemTap,
             tooltip: 'Maintenance',
+          ),
+          _NavIconButton(
+            icon: Icons.task_alt_outlined,
+            item: NavItem.tasks,
+            active: activeItem == NavItem.tasks,
+            onTap: onItemTap,
+            tooltip: 'Tasks',
           ),
           _NavIconButton(
             icon: Icons.home_repair_service_outlined,

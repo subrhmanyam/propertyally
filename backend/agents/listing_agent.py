@@ -29,6 +29,32 @@ vacant commercial and residential spaces. You know Indian real estate platforms 
 tone and emphasis for each one. Always respond with valid JSON only — no markdown, no prose."""
 
 _anthropic_client: anthropic.Anthropic | None = None
+SUPABASE_LISTING_MEDIA_BUCKET = os.getenv('SUPABASE_LISTING_MEDIA_BUCKET')
+
+
+def _resolve_media_url(value: str) -> str:
+    if not value:
+        return value
+    if value.startswith('http://') or value.startswith('https://'):
+        return value
+    if SUPABASE_LISTING_MEDIA_BUCKET:
+        clean_value = value.lstrip('/')
+        supabase_url = os.getenv('SUPABASE_URL', '').rstrip('/')
+        if supabase_url:
+            return f"{supabase_url}/storage/v1/object/public/{SUPABASE_LISTING_MEDIA_BUCKET}/{clean_value}"
+    return value
+
+
+def _normalize_listing_media(listing: dict) -> dict:
+    normalized = dict(listing)
+    normalized['photos'] = [
+        _resolve_media_url(photo) for photo in normalized.get('photos', []) or []
+    ]
+    normalized['video_urls'] = [
+        _resolve_media_url(url) for url in normalized.get('video_urls', []) or []
+    ]
+    normalized['virtual_tour_url'] = _resolve_media_url(normalized.get('virtual_tour_url', '') or '')
+    return normalized
 
 
 def _get_client() -> anthropic.Anthropic:
@@ -118,7 +144,7 @@ async def run_listing_agent(unit_id: str, platform_keys: list[str]) -> dict:
     # 4. Ensure a listing row exists
     existing = (
         sb.table("listings")
-        .select("id, monthly_rent, contact_email, contact_phone, photos, features")
+        .select("id, monthly_rent, contact_email, contact_phone, photos, video_urls, virtual_tour_url, features")
         .eq("leasing_unit_id", unit_id)
         .limit(1)
         .execute()
@@ -136,6 +162,8 @@ async def run_listing_agent(unit_id: str, platform_keys: list[str]) -> dict:
             "contact_phone": unit.get("contact") or "",
             "photos": [],
             "features": [],
+            "video_urls": [],
+            "virtual_tour_url": None,
         }
         created = sb.table("listings").insert(new_listing).execute()
         listing = created.data[0]
@@ -201,7 +229,7 @@ async def run_listing_agent(unit_id: str, platform_keys: list[str]) -> dict:
 
         # Attempt posting
         poster = get_poster(pk)
-        post_result = await poster.post(listing, content)
+        post_result = await poster.post(_normalize_listing_media(listing), content)
 
         if config.get("api_type") == "manual":
             final_status = "manual_required"

@@ -9,6 +9,7 @@ import '../../features/listings/presentation/screens/listing_detail_screen.dart'
 import '../../features/listings/presentation/screens/listings_screen.dart';
 import '../../features/maintenance/presentation/screens/maintenance_screen.dart';
 import '../../features/services/presentation/screens/admin_services_screen.dart';
+import '../../features/tasks/presentation/screens/tasks_screen.dart';
 import '../../features/properties/presentation/screens/leasing_list_screen.dart';
 import '../../features/tenant/presentation/screens/tenant_home_screen.dart';
 import '../../features/tenant/presentation/screens/tenant_invoices_screen.dart';
@@ -101,6 +102,11 @@ class AppRouter {
               path: '/maintenance',
               name: 'maintenance',
               pageBuilder: (_, s) => _page(s, const MaintenanceScreen()),
+            ),
+            GoRoute(
+              path: '/tasks',
+              name: 'tasks',
+              pageBuilder: (_, s) => _page(s, const TasksScreen()),
             ),
             GoRoute(
               path: '/services',

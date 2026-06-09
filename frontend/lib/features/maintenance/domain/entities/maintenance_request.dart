@@ -19,6 +19,7 @@ class MaintenanceRequest {
     this.scheduledDate,
     this.completedDate,
     this.notes,
+    this.photos = const [],
   });
 
   final String id;
@@ -36,6 +37,7 @@ class MaintenanceRequest {
   final DateTime? scheduledDate;
   final DateTime? completedDate;
   final String? notes;
+  final List<String> photos;
 
   factory MaintenanceRequest.fromJson(Map<String, dynamic> json) =>
       MaintenanceRequest(
@@ -58,6 +60,7 @@ class MaintenanceRequest {
             ? DateTime.tryParse(json['completed_date'].toString())
             : null,
         notes: json['notes']?.toString(),
+        photos: (json['photos'] as List?)?.map((e) => e.toString()).toList() ?? [],
       );
 
   static MaintPriority _parsePriority(String? s) => switch (s) {

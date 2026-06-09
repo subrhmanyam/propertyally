@@ -57,6 +57,8 @@ class Listing {
     this.contactEmail,
     this.contactPhone,
     this.photos = const [],
+    this.videoUrls = const [],
+    this.virtualTourUrl,
     this.features = const [],
     this.platformPosts = const [],
     this.createdAt,
@@ -72,6 +74,8 @@ class Listing {
   final String? contactEmail;
   final String? contactPhone;
   final List<String> photos;
+  final List<String> videoUrls;
+  final String? virtualTourUrl;
   final List<String> features;
   final List<PlatformPost> platformPosts;
   final DateTime? createdAt;
@@ -95,6 +99,8 @@ class Listing {
         contactEmail: json['contact_email']?.toString(),
         contactPhone: json['contact_phone']?.toString(),
         photos: List<String>.from(json['photos'] as List? ?? []),
+        videoUrls: List<String>.from(json['video_urls'] as List? ?? []),
+        virtualTourUrl: json['virtual_tour_url']?.toString(),
         features: List<String>.from(json['features'] as List? ?? []),
         createdAt: json['created_at'] != null
             ? DateTime.tryParse(json['created_at'].toString())

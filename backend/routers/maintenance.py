@@ -1,10 +1,12 @@
-"""Maintenance router — requests and comments."""
+"""Maintenance router — requests, comments, and photo uploads."""
 
 from __future__ import annotations
 
+import os
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from db import get_supabase
@@ -109,4 +111,71 @@ async def add_comment(request_id: str, payload: CommentIn) -> dict[str, Any]:
     res = sb.table("maintenance_comments").insert(
         {"request_id": request_id, **payload.model_dump()}
     ).execute()
+    return res.data[0]
+
+
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_MAX_PHOTO_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+@router.post("/{request_id}/photos")
+async def upload_photo(
+    request_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Upload a photo for a maintenance request. Stores in Supabase Storage."""
+    if file.content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, WebP, or GIF images are accepted.")
+
+    data = await file.read()
+    if len(data) > _MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Image must be under 10 MB.")
+
+    sb = get_supabase()
+
+    # Verify request exists
+    existing = sb.table("maintenance_requests").select("id,photos").eq("id", request_id).single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Maintenance request not found")
+
+    bucket = os.getenv("MAINTENANCE_PHOTOS_BUCKET", "maintenance-photos")
+    ext = (file.filename or "photo.jpg").rsplit(".", 1)[-1].lower()
+    storage_path = f"{request_id}/{uuid.uuid4()}.{ext}"
+
+    try:
+        sb.storage.from_(bucket).upload(
+            path=storage_path,
+            file=data,
+            file_options={"content-type": file.content_type},
+        )
+        supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+        photo_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{storage_path}"
+    except Exception:
+        # Fallback: store as data URI if storage bucket is not configured
+        import base64 as _b64
+        mime = file.content_type or "image/jpeg"
+        photo_url = f"data:{mime};base64,{_b64.b64encode(data).decode()}"
+
+    current_photos: list[str] = existing.data.get("photos") or []
+    updated_photos = current_photos + [photo_url]
+
+    res = (
+        sb.table("maintenance_requests")
+        .update({"photos": updated_photos})
+        .eq("id", request_id)
+        .execute()
+    )
+    return res.data[0]
+
+
+@router.delete("/{request_id}/photos")
+async def delete_photo(request_id: str, photo_url: str) -> dict[str, Any]:
+    """Remove a photo URL from a maintenance request's photos array."""
+    sb = get_supabase()
+    existing = sb.table("maintenance_requests").select("id,photos").eq("id", request_id).single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Maintenance request not found")
+
+    photos = [p for p in (existing.data.get("photos") or []) if p != photo_url]
+    res = sb.table("maintenance_requests").update({"photos": photos}).eq("id", request_id).execute()
     return res.data[0]

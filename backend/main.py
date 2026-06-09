@@ -11,9 +11,9 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from routers import (
-    accounting, applications, auth, leasing, listing_agent, listings,
+    accounting, applications, auth, calendar, leasing, listing_agent, listings,
     maintenance, notifications, reports, service_catalog, service_requests,
-    stripe_payments, tenant, tenants,
+    stripe_payments, tasks, tenant, tenants,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -53,14 +53,16 @@ app.include_router(accounting.router,    prefix="/api/v1/accounting",     tags=[
 app.include_router(maintenance.router,   prefix="/api/v1/maintenance",    tags=["Maintenance"])
 app.include_router(applications.router,  prefix="/api/v1/applications",   tags=["Applications"])
 app.include_router(listings.router,      prefix="/api/v1/listings",       tags=["Listings"])
+app.include_router(tasks.router,         prefix="/api/v1/tasks",          tags=["Tasks"])
 app.include_router(reports.router,       prefix="/api/v1/reports",        tags=["Reports"])
-app.include_router(notifications.router,  prefix="/api/v1/notifications",   tags=["Notifications"])
-app.include_router(auth.router,             prefix="/api/v1/auth",              tags=["Auth"])
-app.include_router(listing_agent.router,    prefix="/api/v1/listing-agent",    tags=["Listing Agent"])
-app.include_router(tenant.router,           prefix="/api/v1/tenant",            tags=["Tenant Portal"])
-app.include_router(service_catalog.router,  prefix="/api/v1/service-catalog",   tags=["Service Catalog"])
-app.include_router(service_requests.router, prefix="/api/v1/service-requests",  tags=["Service Requests"])
-app.include_router(stripe_payments.router,  prefix="/api/v1/payments",          tags=["Payments"])
+app.include_router(notifications.router, prefix="/api/v1/notifications",   tags=["Notifications"])
+app.include_router(auth.router,          prefix="/api/v1/auth",            tags=["Auth"])
+app.include_router(listing_agent.router, prefix="/api/v1/listing-agent",    tags=["Listing Agent"])
+app.include_router(tenant.router,        prefix="/api/v1/tenant",          tags=["Tenant Portal"])
+app.include_router(service_catalog.router, prefix="/api/v1/service-catalog", tags=["Service Catalog"])
+app.include_router(service_requests.router, prefix="/api/v1/service-requests", tags=["Service Requests"])
+app.include_router(stripe_payments.router,  prefix="/api/v1/payments",        tags=["Payments"])
+app.include_router(calendar.router,         prefix="/api/v1/calendar",         tags=["Calendar"])
 
 
 # ---------------------------------------------------------------------------
