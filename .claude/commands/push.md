@@ -6,7 +6,7 @@ Push a branch to GitHub.
 4. Run the following, replacing `BRANCH` with the chosen branch name:
 
 ```bash
-cd /Users/subbu/Documents/code-base/bogi && git remote set-url origin https://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@github.com/subrhmanyam/propertyally.git && git push origin BRANCH 2>&1 && git remote set-url origin https://github.com/subrhmanyam/propertyally.git
+cd /Users/subbu/Documents/code-base/bogi && git remote set-url origin https://subrhmanyam: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@github.com/subrhmanyam/propertyally.git && git push origin BRANCH 2>&1 && git remote set-url origin https://github.com/subrhmanyam/propertyally.git
 ```
 
 Report the push output to the user. If the push fails, show the error and suggest a fix.
