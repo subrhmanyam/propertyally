@@ -113,7 +113,7 @@ class _DesktopLayout extends StatelessWidget {
           flex: 7,
           child: Column(
             children: [
-              RecentlyViewedSection(properties: data.recentProperties),
+              const RecentlyViewedSection(properties: []),
               const SizedBox(height: AppDimensions.spaceMD),
               AccountingSection(
                 months: data.accountingMonths,
@@ -141,7 +141,7 @@ class _MobileLayout extends StatelessWidget {
       children: [
         TodayCard(data: data),
         const SizedBox(height: AppDimensions.spaceMD),
-        RecentlyViewedSection(properties: data.recentProperties),
+        const RecentlyViewedSection(properties: []),
         const SizedBox(height: AppDimensions.spaceMD),
         TasksSection(tasks: data.tasks),
         const SizedBox(height: AppDimensions.spaceMD),

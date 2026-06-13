@@ -50,10 +50,37 @@ class RecentlyViewedSection extends StatelessWidget {
           const Divider(height: 1, color: AppColors.divider),
 
           // ── 2-column grid of property tiles ──────────────────────
-          Padding(
-            padding: const EdgeInsets.all(AppDimensions.spaceXS),
-            child: _PropertyGrid(properties: properties),
-          ),
+          if (properties.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.spaceMD,
+                vertical: AppDimensions.spaceLG,
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.history_rounded,
+                      size: 32,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(height: AppDimensions.spaceSM),
+                    const Text(
+                      'No recently viewed properties',
+                      style: TextStyle(
+                        fontSize: AppDimensions.fontSM,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(AppDimensions.spaceXS),
+              child: _PropertyGrid(properties: properties),
+            ),
         ],
       ),
     );
