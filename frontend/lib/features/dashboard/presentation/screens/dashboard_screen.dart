@@ -21,8 +21,18 @@ class DashboardScreen extends StatelessWidget {
 }
 
 class _DashboardBody extends StatelessWidget {
-  // Using mock data — swap with Provider + Repository when backend is connected
-  final DashboardData data = DashboardData.mock;
+  final DashboardData data = const DashboardData(
+    todayDate: '',
+    reminderCount: 0,
+    onboardingProgress: 0,
+    onboardingStep: 0,
+    onboardingTotal: 0,
+    recentProperties: [],
+    tasks: [],
+    accountingMonths: [],
+    totalIncome: 0,
+    totalExpenses: 0,
+  );
 
   @override
   Widget build(BuildContext context) {

@@ -19,15 +19,9 @@ class LeasingRepository {
           .select('*, area_entries(*)')
           .order('name');
 
-      if (rows.isEmpty) return LeasingUnit.mockList;
-
-      return rows
-          .map((r) => LeasingUnit.fromJson(r))
-          .toList();
+      return rows.map((r) => LeasingUnit.fromJson(r)).toList();
     } catch (_) {
-      // Supabase not configured yet — use local mock data
-      await Future.delayed(const Duration(milliseconds: 300));
-      return List.of(LeasingUnit.mockList);
+      return [];
     }
   }
 

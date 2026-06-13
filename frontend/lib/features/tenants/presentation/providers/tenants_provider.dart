@@ -53,10 +53,6 @@ class TenantsProvider extends BaseProvider {
     await runAsync(() async {
       _tenants = await _repository.listTenants(propertyId: propertyId);
     });
-    if (_tenants.isEmpty) {
-      _tenants = Tenant.mockList;
-      notifyListeners();
-    }
   }
 
   Future<void> loadTenant(String id) async {
@@ -66,13 +62,6 @@ class TenantsProvider extends BaseProvider {
     });
     if (_selectedTenant == null) {
       _selectedTenant = _tenants.where((t) => t.id == id).firstOrNull;
-      if (_selectedTenant == null) {
-        _selectedTenant = Tenant.mockList.firstWhere(
-          (t) => t.id == id,
-          orElse: () => Tenant.mockList.first,
-        );
-      }
-      _selectedLease = Lease.mock(id, 0);
       notifyListeners();
     }
   }

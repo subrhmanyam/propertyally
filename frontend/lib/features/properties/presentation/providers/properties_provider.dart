@@ -52,11 +52,6 @@ class PropertiesProvider extends BaseProvider {
     await runAsync(() async {
       _properties = await _repository.listProperties();
     });
-    // Fallback to mock data for development
-    if (_properties.isEmpty && errorMessage != null) {
-      _properties = Property.mockList;
-      notifyListeners();
-    }
   }
 
   Future<void> loadProperty(String id) async {
@@ -65,12 +60,6 @@ class PropertiesProvider extends BaseProvider {
     });
     if (_selectedProperty == null) {
       _selectedProperty = _properties.where((p) => p.id == id).firstOrNull;
-      if (_selectedProperty == null && _properties.isEmpty) {
-        _selectedProperty = Property.mockList.firstWhere(
-          (p) => p.id == id,
-          orElse: () => Property.mockList.first,
-        );
-      }
       notifyListeners();
     }
   }
