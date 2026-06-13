@@ -300,6 +300,7 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
         return _CompanyView(
           provider: provider,
           onImport: _importFile,
+          onAdd: _openAdd,
         );
       },
     );
@@ -311,10 +312,15 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
 // ══════════════════════════════════════════════════════════════════════
 
 class _CompanyView extends StatelessWidget {
-  const _CompanyView({required this.provider, required this.onImport});
+  const _CompanyView({
+    required this.provider,
+    required this.onImport,
+    required this.onAdd,
+  });
 
   final LeasingProvider provider;
   final VoidCallback onImport;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +362,12 @@ class _CompanyView extends StatelessWidget {
                   icon: Icons.upload_file_outlined,
                   variant: AppButtonVariant.secondary,
                   onPressed: onImport,
+                ),
+                const SizedBox(width: AppDimensions.spaceSM),
+                AppButton(
+                  label: 'Add Property',
+                  icon: Icons.add,
+                  onPressed: onAdd,
                 ),
               ],
             ),
