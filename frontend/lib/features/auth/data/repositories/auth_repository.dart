@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AuthRepository {
-  static const _base = 'http://localhost:8000';
+import '../../../../core/network/api_client.dart';
 
+class AuthRepository {
   SupabaseClient get _client => Supabase.instance.client;
-  Dio get _dio => Dio(BaseOptions(baseUrl: _base));
+  Dio get _dio => ApiClient.instance;
 
   User? get currentUser => _client.auth.currentUser;
   bool get isSignedIn => currentUser != null;

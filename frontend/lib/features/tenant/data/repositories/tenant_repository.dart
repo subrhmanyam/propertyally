@@ -1,13 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class TenantRepository {
-  static const _base = 'http://localhost:8000';
+import '../../../../core/network/api_client.dart';
 
+class TenantRepository {
   String get _userId =>
       Supabase.instance.client.auth.currentUser?.id ?? '';
 
-  Dio get _dio => Dio(BaseOptions(baseUrl: _base));
+  Dio get _dio => ApiClient.instance;
 
   Map<String, dynamic> get _qp => {'user_id': _userId};
 

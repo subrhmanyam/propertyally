@@ -1,13 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../../core/network/api_client.dart';
 import '../../domain/entities/listing.dart';
 
 class ListingsRepository {
-  ListingsRepository() : _dio = Dio(BaseOptions(baseUrl: _backendBase));
-
-  static const String _backendBase = 'http://localhost:8000';
-
-  final Dio _dio;
+  final Dio _dio = ApiClient.instance;
   SupabaseClient get _db => Supabase.instance.client;
 
   Future<List<Listing>> getAll() async {

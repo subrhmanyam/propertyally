@@ -1,12 +1,10 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../domain/entities/transaction.dart';
 
 class AccountingRepository {
-  AccountingRepository() : _dio = Dio(BaseOptions(baseUrl: _base));
-
-  static const String _base = 'http://localhost:8000';
-  final Dio _dio;
+  final Dio _dio = ApiClient.accounting;
 
   Future<List<Transaction>> getTransactions({
     String? type,

@@ -436,6 +436,7 @@ class _PortfolioKpiRow extends StatelessWidget {
 
     Expanded buildCard(int i) => Expanded(
           child: Container(
+            margin: EdgeInsets.only(right: i < 3 ? AppDimensions.spaceSM : 0),
             padding: const EdgeInsets.all(AppDimensions.spaceMD),
             decoration: BoxDecoration(
               color: AppColors.cardBg,
@@ -463,25 +464,12 @@ class _PortfolioKpiRow extends StatelessWidget {
 
     if (isMobile) {
       return Column(children: [
-        Row(children: [
-          buildCard(0),
-          const SizedBox(width: AppDimensions.spaceSM),
-          buildCard(1),
-        ]),
+        Row(children: [buildCard(0), buildCard(1)]),
         const SizedBox(height: AppDimensions.spaceSM),
-        Row(children: [
-          buildCard(2),
-          const SizedBox(width: AppDimensions.spaceSM),
-          buildCard(3),
-        ]),
+        Row(children: [buildCard(2), buildCard(3)]),
       ]);
     }
-    return Row(
-      children: List.generate(4, (i) => Padding(
-            padding: EdgeInsets.only(right: i < 3 ? AppDimensions.spaceSM : 0),
-            child: buildCard(i),
-          )),
-    );
+    return Row(children: List.generate(4, buildCard));
   }
 }
 
@@ -853,6 +841,7 @@ class _UnitsKpiRow extends StatelessWidget {
 
     Expanded buildCard(int i) => Expanded(
           child: Container(
+            margin: EdgeInsets.only(right: i < 3 ? AppDimensions.spaceSM : 0),
             padding: const EdgeInsets.all(AppDimensions.spaceMD),
             decoration: BoxDecoration(
               color: AppColors.cardBg,
@@ -880,25 +869,12 @@ class _UnitsKpiRow extends StatelessWidget {
 
     if (isMobile) {
       return Column(children: [
-        Row(children: [
-          buildCard(0),
-          const SizedBox(width: AppDimensions.spaceSM),
-          buildCard(1),
-        ]),
+        Row(children: [buildCard(0), buildCard(1)]),
         const SizedBox(height: AppDimensions.spaceSM),
-        Row(children: [
-          buildCard(2),
-          const SizedBox(width: AppDimensions.spaceSM),
-          buildCard(3),
-        ]),
+        Row(children: [buildCard(2), buildCard(3)]),
       ]);
     }
-    return Row(
-      children: List.generate(4, (i) => Padding(
-            padding: EdgeInsets.only(right: i < 3 ? AppDimensions.spaceSM : 0),
-            child: buildCard(i),
-          )),
-    );
+    return Row(children: List.generate(4, buildCard));
   }
 }
 

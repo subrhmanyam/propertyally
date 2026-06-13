@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/network/api_client.dart';
+
 class ServicesRepository {
-  static const _base = 'http://localhost:8000';
-  final Dio _dio = Dio(BaseOptions(baseUrl: _base));
+  final Dio _dio = ApiClient.instance;
 
   Future<List<Map<String, dynamic>>> listRequests({
     String? status,

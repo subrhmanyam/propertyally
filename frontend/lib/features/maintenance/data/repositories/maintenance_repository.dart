@@ -1,12 +1,10 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../domain/entities/maintenance_request.dart';
 
 class MaintenanceRepository {
-  MaintenanceRepository() : _dio = Dio(BaseOptions(baseUrl: _base));
-
-  static const String _base = 'http://localhost:8000';
-  final Dio _dio;
+  final Dio _dio = ApiClient.maintenance;
 
   Future<List<MaintenanceRequest>> getAll({
     String? status,
