@@ -27,8 +27,8 @@ frontend/**/*.mocks.dart
 frontend/macos/Pods/
 frontend/macos/Flutter/ephemeral/
 
-# Web platform build output
-frontend/web/
+# Web platform build output (only the build dir, not web source)
+# frontend/web/ contains source files and should be tracked
 
 # IDE
 frontend/.idea/
