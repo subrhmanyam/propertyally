@@ -146,6 +146,7 @@ class LeasingUnit {
     'Studio Room',
     'Co-working',
     'Parking',
+    'Land/Site',
     'Other',
   ];
 
