@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/utils/export_helper.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../properties/domain/entities/leasing_unit.dart';
+import '../../../properties/presentation/providers/leasing_provider.dart';
+import '../../../properties/presentation/widgets/leasing_form_dialog.dart';
 import '../../domain/entities/tenant.dart';
 import '../providers/tenants_provider.dart';
+import '../widgets/tenant_form_dialog.dart';
 
 class TenantListScreen extends StatefulWidget {
   const TenantListScreen({super.key});
@@ -19,60 +24,219 @@ class TenantListScreen extends StatefulWidget {
 }
 
 class _TenantListScreenState extends State<TenantListScreen> {
-  final _searchController = TextEditingController();
+  LeasingUnit? _selectedUnit;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TenantsProvider>().loadTenants();
+      context.read<LeasingProvider>().load();
     });
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void _exportCsv() {
+    final tenants = context.read<TenantsProvider>().tenants;
+    if (tenants.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No tenants to export.')),
+      );
+      return;
+    }
+    final csv = buildCsv(
+      ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Status', 'Unit ID', 'Move-in Date'],
+      tenants.map((t) => [
+        t.id, t.firstName, t.lastName, t.email, t.phone,
+        t.status, t.unitId ?? '', t.moveInDate?.toIso8601String() ?? '',
+      ]).toList(),
+    );
+    downloadCsv(csv, 'tenants_${DateTime.now().millisecondsSinceEpoch}.csv');
+  }
+
+  Future<void> _openAddTenant() async {
+    final lp = context.read<LeasingProvider>();
+    final tp = context.read<TenantsProvider>();
+    if (lp.units.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least one property first.')),
+      );
+      return;
+    }
+    final data = await showTenantForm(
+      context,
+      units: lp.units,
+      preselectedUnit: _selectedUnit,
+    );
+    if (data != null && mounted) {
+      await tp.createTenant(data);
+    }
+  }
+
+  Future<void> _confirmDeleteTenant(Tenant tenant) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.cardBg,
+        title: const Text('Delete Tenant?',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          'Remove ${tenant.fullName} permanently?',
+          style: const TextStyle(color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await context.read<TenantsProvider>().deleteTenant(tenant.id);
+    }
+  }
+
+  Future<void> _openEditProperty(LeasingUnit unit) async {
+    final result = await showLeasingForm(context, unit: unit);
+    if (result != null && mounted) {
+      await context.read<LeasingProvider>().update(result);
+      if (_selectedUnit?.id == result.id) {
+        setState(() => _selectedUnit = result);
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteProperty(LeasingUnit unit) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.cardBg,
+        title: const Text('Delete Property?',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          'Delete "${unit.name}"? This cannot be undone.',
+          style: const TextStyle(color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await context.read<LeasingProvider>().delete(unit.id);
+      if (_selectedUnit?.id == unit.id) {
+        setState(() => _selectedUnit = null);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TenantsProvider>(
-      builder: (context, provider, _) {
-        final isMobile = Responsive.isMobile(context);
+    return Consumer2<TenantsProvider, LeasingProvider>(
+      builder: (context, tp, lp, _) {
+        // ── Level 2: tenants for selected property ─────────────────
+        if (_selectedUnit != null) {
+          final unit = lp.units
+                  .where((u) => u.id == _selectedUnit!.id)
+                  .firstOrNull ??
+              _selectedUnit!;
+          final unitTenants =
+              tp.tenants.where((t) => t.unitId == unit.id).toList();
+          return _PropertyTenantsView(
+            unit: unit,
+            tenants: unitTenants,
+            isLoading: tp.isLoading,
+            onBack: () => setState(() => _selectedUnit = null),
+            onAddTenant: _openAddTenant,
+            onDeleteTenant: _confirmDeleteTenant,
+            onDeleteProperty: _confirmDeleteProperty,
+            onEditProperty: _openEditProperty,
+          );
+        }
 
+        // Build per-unit tenant count
+        final tenantCount = <String, int>{};
+        for (final t in tp.tenants) {
+          if (t.unitId != null && t.unitId!.isNotEmpty) {
+            tenantCount[t.unitId!] = (tenantCount[t.unitId!] ?? 0) + 1;
+          }
+        }
+
+        // ── Level 1: property cards ─────────────────────────────────
         return SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(AppDimensions.pagePadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Header ──────────────────────────────────────────
-                _ScreenHeader(count: provider.tenants.length),
-                const SizedBox(height: AppDimensions.spaceLG),
-
-                // ── Filters ──────────────────────────────────────────
-                _FilterRow(
-                  provider: provider,
-                  searchController: _searchController,
+                Row(
+                  children: [
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppStrings.tenants,
+                          style: TextStyle(
+                            fontSize: AppDimensions.fontH2,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Select a property to view and manage tenants',
+                          style: TextStyle(
+                              fontSize: AppDimensions.fontBase,
+                              color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    AppButton(
+                      label: 'Export CSV',
+                      icon: Icons.download_outlined,
+                      variant: AppButtonVariant.ghost,
+                      onPressed: _exportCsv,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppDimensions.spaceLG),
-
-                // ── Content ──────────────────────────────────────────
-                if (provider.isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (provider.tenants.isEmpty)
-                  EmptyState(
-                    icon: Icons.people_outline,
-                    title: AppStrings.noTenants,
-                    description: AppStrings.noTenantsDesc,
-                    actionLabel: AppStrings.addTenant,
-                    onAction: () {},
+                if (lp.isLoading || tp.isLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 80),
+                      child: CircularProgressIndicator(
+                          color: AppColors.accentGold),
+                    ),
+                  )
+                else if (lp.units.isEmpty)
+                  const EmptyState(
+                    icon: Icons.apartment_outlined,
+                    title: 'No Properties Yet',
+                    description:
+                        'Add properties in the Properties section first.',
                   )
                 else
-                  isMobile
-                      ? _TenantCardList(tenants: provider.tenants)
-                      : _TenantTable(tenants: provider.tenants),
+                  _PropertyGrid(
+                    units: lp.units,
+                    tenantCount: tenantCount,
+                    onSelect: (unit) => setState(() => _selectedUnit = unit),
+                    onDelete: _confirmDeleteProperty,
+                  ),
               ],
             ),
           ),
@@ -82,323 +246,489 @@ class _TenantListScreenState extends State<TenantListScreen> {
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────
+// ── Level 2 — tenant vcards for a property ────────────────────────────
 
-class _ScreenHeader extends StatelessWidget {
-  const _ScreenHeader({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              AppStrings.tenants,
-              style: TextStyle(
-                fontSize: AppDimensions.fontH2,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            if (count > 0)
-              Text(
-                '$count tenants',
-                style: const TextStyle(
-                  fontSize: AppDimensions.fontBase,
-                  color: AppColors.textMuted,
-                ),
-              ),
-          ],
-        ),
-        const Spacer(),
-        AppButton(
-          label: AppStrings.addTenant,
-          icon: Icons.person_add_outlined,
-          onPressed: () {},
-        ),
-      ],
-    );
-  }
-}
-
-// ── Filter row ────────────────────────────────────────────────────────
-
-class _FilterRow extends StatelessWidget {
-  const _FilterRow({
-    required this.provider,
-    required this.searchController,
+class _PropertyTenantsView extends StatelessWidget {
+  const _PropertyTenantsView({
+    required this.unit,
+    required this.tenants,
+    required this.isLoading,
+    required this.onBack,
+    required this.onAddTenant,
+    required this.onDeleteTenant,
+    required this.onDeleteProperty,
+    required this.onEditProperty,
   });
 
-  final TenantsProvider provider;
-  final TextEditingController searchController;
-
-  static const _statuses = [
-    AppStrings.filterAll,
-    AppStrings.active,
-    AppStrings.pending,
-    AppStrings.inactive,
-  ];
+  final LeasingUnit unit;
+  final List<Tenant> tenants;
+  final bool isLoading;
+  final VoidCallback onBack;
+  final VoidCallback onAddTenant;
+  final ValueChanged<Tenant> onDeleteTenant;
+  final ValueChanged<LeasingUnit> onDeleteProperty;
+  final ValueChanged<LeasingUnit> onEditProperty;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // ── Status chips ─────────────────────────────────────────
-        Wrap(
-          spacing: AppDimensions.spaceSM,
-          children: _statuses.map((s) {
-            final active = provider.statusFilter == s;
-            return GestureDetector(
-              onTap: () => provider.setStatusFilter(s),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.spaceMD,
-                  vertical: AppDimensions.spaceXS,
-                ),
-                decoration: BoxDecoration(
-                  color: active ? AppColors.accentGreen : AppColors.cardBg,
-                  border: Border.all(
-                    color: active ? AppColors.accentGreen : AppColors.border,
-                  ),
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
-                ),
-                child: Text(
-                  s,
-                  style: TextStyle(
-                    fontSize: AppDimensions.fontBase,
-                    fontWeight: FontWeight.w500,
-                    color: active ? AppColors.bgOuter : AppColors.textSecondary,
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimensions.pagePadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Breadcrumb header ───────────────────────────────────
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: onBack,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.arrow_back,
+                            size: AppDimensions.iconMD,
+                            color: AppColors.textMuted),
+                        SizedBox(width: AppDimensions.spaceXS),
+                        Text('Properties',
+                            style: TextStyle(
+                                fontSize: AppDimensions.fontBase,
+                                color: AppColors.textMuted)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        ),
-        const Spacer(),
+                const SizedBox(width: AppDimensions.spaceSM),
+                const Text('/',
+                    style: TextStyle(
+                        color: AppColors.textMuted, fontSize: 18)),
+                const SizedBox(width: AppDimensions.spaceSM),
+                Expanded(
+                  child: Text(
+                    unit.name,
+                    style: const TextStyle(
+                        fontSize: AppDimensions.fontH2,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Edit property
+                Tooltip(
+                  message: 'Edit property',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onEditProperty(unit),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: const Padding(
+                        padding: EdgeInsets.all(AppDimensions.spaceXS),
+                        child: Icon(Icons.edit_outlined,
+                            size: AppDimensions.iconMD,
+                            color: AppColors.textMuted),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spaceXS),
+                // Delete property
+                Tooltip(
+                  message: 'Delete property',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onDeleteProperty(unit),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: const Padding(
+                        padding: EdgeInsets.all(AppDimensions.spaceXS),
+                        child: Icon(Icons.delete_outline,
+                            size: AppDimensions.iconMD,
+                            color: AppColors.error),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spaceSM),
+                AppButton(
+                  label: AppStrings.addTenant,
+                  icon: Icons.person_add_outlined,
+                  onPressed: onAddTenant,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimensions.spaceSM),
 
-        // ── Search ──────────────────────────────────────────────
-        SizedBox(
-          width: 240,
-          height: 38,
-          child: TextField(
-            controller: searchController,
-            onChanged: provider.setSearchQuery,
-            style: const TextStyle(
-              fontSize: AppDimensions.fontBase,
-              color: AppColors.textPrimary,
+            // ── Property meta chips ─────────────────────────────────
+            Wrap(
+              spacing: AppDimensions.spaceSM,
+              children: [
+                _InfoChip(label: unit.category),
+                _InfoChip(label: unit.companyName),
+                _InfoChip(label: unit.floor),
+              ],
             ),
-            decoration: const InputDecoration(
-              hintText: AppStrings.searchTenants,
-              prefixIcon: Icon(
-                Icons.search_rounded,
-                color: AppColors.textMuted,
-                size: AppDimensions.iconMD,
-              ),
-              contentPadding: EdgeInsets.symmetric(vertical: 0),
-            ),
-          ),
+            const SizedBox(height: AppDimensions.spaceLG),
+
+            // ── Tenant content ──────────────────────────────────────
+            if (isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 60),
+                  child:
+                      CircularProgressIndicator(color: AppColors.accentGold),
+                ),
+              )
+            else if (tenants.isEmpty)
+              EmptyState(
+                icon: Icons.people_outline,
+                title: 'No Tenants Yet',
+                description: 'Add the first tenant for ${unit.name}.',
+                actionLabel: AppStrings.addTenant,
+                onAction: onAddTenant,
+              )
+            else
+              _TenantVCardGrid(
+                  tenants: tenants, onDelete: onDeleteTenant),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
 
-// ── Desktop table ─────────────────────────────────────────────────────
-
-class _TenantTable extends StatelessWidget {
-  const _TenantTable({required this.tenants});
-
-  final List<Tenant> tenants;
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.label});
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.cardBg,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
       ),
-      child: Column(
-        children: [
-          // ── Header ─────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.spaceMD,
-              vertical: AppDimensions.spaceSM,
-            ),
-            decoration: const BoxDecoration(
-              color: AppColors.pageBg,
-              border: Border(bottom: BorderSide(color: AppColors.border)),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(AppDimensions.radiusMD),
-              ),
-            ),
-            child: const Row(
-              children: [
-                _TH(label: 'Name', flex: 3),
-                _TH(label: 'Email', flex: 3),
-                _TH(label: 'Phone', flex: 2),
-                _TH(label: 'Move-in', flex: 2),
-                _TH(label: 'Status', flex: 2),
-                _TH(label: '', flex: 1),
-              ],
-            ),
-          ),
-
-          // ── Rows ───────────────────────────────────────────────
-          ...tenants.asMap().entries.map((e) {
-            final i = e.key;
-            final t = e.value;
-            return _TenantRow(
-              tenant: t,
-              isLast: i == tenants.length - 1,
-            );
-          }),
-        ],
-      ),
+      child: Text(label,
+          style: const TextStyle(
+              fontSize: AppDimensions.fontSM, color: AppColors.textMuted)),
     );
   }
 }
 
-class _TH extends StatelessWidget {
-  const _TH({required this.label, this.flex = 1});
+// ── Tenant vcard grid ─────────────────────────────────────────────────
 
-  final String label;
-  final int flex;
+class _TenantVCardGrid extends StatelessWidget {
+  const _TenantVCardGrid({required this.tenants, required this.onDelete});
+
+  final List<Tenant> tenants;
+  final ValueChanged<Tenant> onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        label.toUpperCase(),
-        style: const TextStyle(
-          fontSize: AppDimensions.fontXS,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textMuted,
-          letterSpacing: 0.8,
-        ),
+    final cols =
+        Responsive.value<int>(context, mobile: 1, tablet: 2, desktop: 3);
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cols,
+        childAspectRatio: cols == 1 ? 3.5 : 2.4,
+        crossAxisSpacing: AppDimensions.spaceMD,
+        mainAxisSpacing: AppDimensions.spaceMD,
       ),
+      itemCount: tenants.length,
+      itemBuilder: (_, i) =>
+          _TenantVCard(tenant: tenants[i], onDelete: onDelete),
     );
   }
 }
 
-class _TenantRow extends StatefulWidget {
-  const _TenantRow({required this.tenant, required this.isLast});
+class _TenantVCard extends StatefulWidget {
+  const _TenantVCard({required this.tenant, required this.onDelete});
 
   final Tenant tenant;
-  final bool isLast;
+  final ValueChanged<Tenant> onDelete;
 
   @override
-  State<_TenantRow> createState() => _TenantRowState();
+  State<_TenantVCard> createState() => _TenantVCardState();
 }
 
-class _TenantRowState extends State<_TenantRow> {
+class _TenantVCardState extends State<_TenantVCard> {
   bool _hovered = false;
+  final _fmt = DateFormat('MMM d, yyyy');
 
   @override
   Widget build(BuildContext context) {
     final t = widget.tenant;
-    final fmt = DateFormat('MMM d, yyyy');
-
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: () => context.go('/tenants/${t.id}'),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          decoration: BoxDecoration(
-            color: _hovered ? AppColors.pageBg : Colors.transparent,
-            border: !widget.isLast
-                ? const Border(bottom: BorderSide(color: AppColors.border))
-                : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        padding: const EdgeInsets.all(AppDimensions.spaceMD),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          border: Border.all(
+            color: _hovered ? AppColors.accentGold : AppColors.border,
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.spaceMD,
-            vertical: AppDimensions.spaceMD,
-          ),
-          child: Row(
-            children: [
-              // Name + avatar
-              Expanded(
-                flex: 3,
-                child: Row(
-                  children: [
-                    _TenantAvatar(tenant: t),
-                    const SizedBox(width: AppDimensions.spaceSM),
-                    Expanded(
-                      child: Text(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // ── Top: avatar + name + status + delete ────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Avatar(tenant: t),
+                const SizedBox(width: AppDimensions.spaceSM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         t.fullName,
                         style: const TextStyle(
                           fontSize: AppDimensions.fontBase,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (t.email.isNotEmpty)
+                        Text(
+                          t.email,
+                          style: const TextStyle(
+                              fontSize: AppDimensions.fontXS,
+                              color: AppColors.textMuted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                _TenantStatusBadge(status: t.status),
+                const SizedBox(width: AppDimensions.spaceXS),
+                // Delete — always visible, large enough tap target
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => widget.onDelete(t),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.delete_outline,
+                        size: AppDimensions.iconSM,
+                        color: _hovered
+                            ? AppColors.error
+                            : AppColors.textMuted,
+                      ),
                     ),
-                  ],
-                ),
-              ),
-              // Email
-              Expanded(
-                flex: 3,
-                child: Text(
-                  t.email,
-                  style: const TextStyle(
-                    fontSize: AppDimensions.fontBase,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // Phone
-              Expanded(
-                flex: 2,
-                child: Text(
-                  t.phone,
-                  style: const TextStyle(
-                    fontSize: AppDimensions.fontBase,
-                    color: AppColors.textSecondary,
                   ),
                 ),
-              ),
-              // Move-in date
-              Expanded(
-                flex: 2,
-                child: Text(
-                  t.moveInDate != null ? fmt.format(t.moveInDate!) : '—',
-                  style: const TextStyle(
-                    fontSize: AppDimensions.fontBase,
-                    color: AppColors.textSecondary,
+              ],
+            ),
+
+            // ── Bottom: phone + move-in ──────────────────────────
+            Row(
+              children: [
+                if (t.phone.isNotEmpty) ...[
+                  const Icon(Icons.phone_outlined,
+                      size: 12, color: AppColors.textMuted),
+                  const SizedBox(width: 4),
+                  Text(t.phone,
+                      style: const TextStyle(
+                          fontSize: AppDimensions.fontXS,
+                          color: AppColors.textMuted)),
+                ],
+                const Spacer(),
+                if (t.moveInDate != null) ...[
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 11, color: AppColors.textMuted),
+                  const SizedBox(width: 3),
+                  Text(
+                    _fmt.format(t.moveInDate!),
+                    style: const TextStyle(
+                        fontSize: AppDimensions.fontXS,
+                        color: AppColors.textMuted),
                   ),
-                ),
-              ),
-              // Status badge
-              Expanded(
-                flex: 2,
-                child: _TenantStatusBadge(status: t.status),
-              ),
-              // Arrow
-              Expanded(
-                flex: 1,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Icon(
-                    Icons.chevron_right,
-                    size: AppDimensions.iconMD,
-                    color: _hovered ? AppColors.accentGreen : AppColors.textMuted,
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Level 1 — property selection grid ────────────────────────────────
+
+class _PropertyGrid extends StatelessWidget {
+  const _PropertyGrid({
+    required this.units,
+    required this.tenantCount,
+    required this.onSelect,
+    required this.onDelete,
+  });
+
+  final List<LeasingUnit> units;
+  final Map<String, int> tenantCount;
+  final ValueChanged<LeasingUnit> onSelect;
+  final ValueChanged<LeasingUnit> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final cols =
+        Responsive.value<int>(context, mobile: 1, tablet: 2, desktop: 3);
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cols,
+        childAspectRatio: cols == 1 ? 3.0 : 2.2,
+        crossAxisSpacing: AppDimensions.spaceMD,
+        mainAxisSpacing: AppDimensions.spaceMD,
+      ),
+      itemCount: units.length,
+      itemBuilder: (_, i) => _PropertyCard(
+        unit: units[i],
+        count: tenantCount[units[i].id] ?? 0,
+        onTap: () => onSelect(units[i]),
+        onDelete: () => onDelete(units[i]),
+      ),
+    );
+  }
+}
+
+class _PropertyCard extends StatefulWidget {
+  const _PropertyCard({
+    required this.unit,
+    required this.count,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final LeasingUnit unit;
+  final int count;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  State<_PropertyCard> createState() => _PropertyCardState();
+}
+
+class _PropertyCardState extends State<_PropertyCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.unit;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 130),
+          padding: const EdgeInsets.all(AppDimensions.spaceMD),
+          decoration: BoxDecoration(
+            color: _hovered ? AppColors.cardBg : AppColors.pageBg,
+            border: Border.all(
+              color: _hovered ? AppColors.accentGold : AppColors.border,
+            ),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Category + delete (always visible)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      u.category,
+                      style: const TextStyle(
+                        fontSize: AppDimensions.fontXS,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.accentGold,
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
+                  // Delete — opaque so it wins over card GestureDetector
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: widget.onDelete,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.delete_outline,
+                          size: AppDimensions.iconSM,
+                          color: _hovered
+                              ? AppColors.error
+                              : AppColors.textMuted
+                                  .withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Property name + portfolio
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    u.name,
+                    style: const TextStyle(
+                      fontSize: AppDimensions.fontH3,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    u.companyName,
+                    style: const TextStyle(
+                        fontSize: AppDimensions.fontSM,
+                        color: AppColors.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+
+              // Tenant count + status + arrow
+              Row(
+                children: [
+                  const Icon(Icons.people_outline,
+                      size: AppDimensions.iconSM,
+                      color: AppColors.textMuted),
+                  const SizedBox(width: AppDimensions.spaceXS),
+                  Text(
+                    '${widget.count} tenant${widget.count == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: AppDimensions.fontSM,
+                        color: AppColors.textMuted),
+                  ),
+                  const Spacer(),
+                  _UnitStatusBadge(status: u.status),
+                ],
               ),
             ],
           ),
@@ -408,90 +738,55 @@ class _TenantRowState extends State<_TenantRow> {
   }
 }
 
-// ── Mobile card list ──────────────────────────────────────────────────
-
-class _TenantCardList extends StatelessWidget {
-  const _TenantCardList({required this.tenants});
-
-  final List<Tenant> tenants;
+class _UnitStatusBadge extends StatelessWidget {
+  const _UnitStatusBadge({required this.status});
+  final String status;
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('MMM d, yyyy');
-    return Column(
-      children: tenants.map((t) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: AppDimensions.spaceSM),
-          decoration: BoxDecoration(
-            color: AppColors.cardBg,
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-          ),
-          child: ListTile(
-            onTap: () => context.go('/tenants/${t.id}'),
-            leading: _TenantAvatar(tenant: t),
-            title: Text(
-              t.fullName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            subtitle: Text(
-              t.email,
-              style: const TextStyle(
-                fontSize: AppDimensions.fontSM,
-                color: AppColors.textMuted,
-              ),
-            ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _TenantStatusBadge(status: t.status),
-                if (t.moveInDate != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    fmt.format(t.moveInDate!),
-                    style: const TextStyle(
-                      fontSize: AppDimensions.fontXS,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      }).toList(),
+    final (bg, fg) = switch (status.toLowerCase()) {
+      'occupied' => (AppColors.occupiedBg, AppColors.occupiedText),
+      'pending' => (AppColors.pendingBg, AppColors.pendingText),
+      _ => (AppColors.vacantBg, AppColors.vacantText),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
+      ),
+      child: Text(
+        status[0].toUpperCase() + status.substring(1),
+        style: TextStyle(
+            fontSize: AppDimensions.fontXS,
+            fontWeight: FontWeight.w600,
+            color: fg),
+      ),
     );
   }
 }
 
-// ── Shared sub-widgets ────────────────────────────────────────────────
+// ── Shared widgets ───────────────────────────────────────────────────
 
-class _TenantAvatar extends StatelessWidget {
-  const _TenantAvatar({required this.tenant});
-
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.tenant});
   final Tenant tenant;
 
   @override
   Widget build(BuildContext context) {
-    final initials = tenant.firstName.isNotEmpty && tenant.lastName.isNotEmpty
-        ? '${tenant.firstName[0]}${tenant.lastName[0]}'
-        : tenant.firstName.isNotEmpty
-            ? tenant.firstName[0]
-            : '?';
+    final initials = [
+      if (tenant.firstName.isNotEmpty) tenant.firstName[0],
+      if (tenant.lastName.isNotEmpty) tenant.lastName[0],
+    ].join();
     return CircleAvatar(
       radius: AppDimensions.avatarSM / 2,
-      backgroundColor: AppColors.accentGreen,
+      backgroundColor: AppColors.accentGold,
       child: Text(
-        initials,
+        initials.isEmpty ? '?' : initials,
         style: const TextStyle(
-          color: Colors.white,
-          fontSize: AppDimensions.fontXS,
-          fontWeight: FontWeight.w600,
-        ),
+            color: AppColors.bgOuter,
+            fontSize: AppDimensions.fontXS,
+            fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -499,17 +794,15 @@ class _TenantAvatar extends StatelessWidget {
 
 class _TenantStatusBadge extends StatelessWidget {
   const _TenantStatusBadge({required this.status});
-
   final String status;
 
   @override
   Widget build(BuildContext context) {
-    final (bg, textColor, label) = switch (status.toLowerCase()) {
+    final (bg, fg, label) = switch (status.toLowerCase()) {
       'active' => (AppColors.occupiedBg, AppColors.occupiedText, 'Active'),
       'pending' => (AppColors.pendingBg, AppColors.pendingText, 'Pending'),
       _ => (AppColors.vacantBg, AppColors.vacantText, 'Inactive'),
     };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -519,10 +812,9 @@ class _TenantStatusBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: AppDimensions.fontXS,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
+            fontSize: AppDimensions.fontXS,
+            fontWeight: FontWeight.w600,
+            color: fg),
       ),
     );
   }

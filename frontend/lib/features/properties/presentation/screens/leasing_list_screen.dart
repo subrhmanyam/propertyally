@@ -1,12 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/excel_importer.dart';
+import '../../../../core/utils/export_helper.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/empty_state.dart';
@@ -64,7 +67,55 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     final ext = (file.extension ?? '').toLowerCase();
 
     if (ext == 'pdf') {
-      _showSnack('PDF import not supported. Please fill in the form manually.');
+      final bytes = file.bytes;
+      if (bytes == null) { _showSnack('Could not read file bytes.'); return; }
+      _showSnack('Parsing PDF with AI… this may take a few seconds.');
+      try {
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(bytes, filename: file.name),
+        });
+        final resp = await ApiClient.properties.post(
+          '/api/v1/leasing/import-pdf',
+          data: formData,
+        );
+        final rawList = (resp.data as List?) ?? [];
+        final parsed = rawList.map((e) {
+          final m = e as Map<String, dynamic>;
+          final areas = (m['areas'] as List? ?? []).map((a) {
+            final am = a as Map<String, dynamic>;
+            return AreaEntry(
+              type: am['type']?.toString() ?? 'covered',
+              sqft: (am['sqft'] as num?)?.toDouble() ?? 0,
+              rate: (am['rate'] as num?)?.toDouble() ?? 0,
+            );
+          }).toList();
+          return LeasingUnit(
+            id: 'lu_${DateTime.now().millisecondsSinceEpoch}_${rawList.indexOf(e)}',
+            name: m['name']?.toString() ?? '',
+            companyName: m['company_name']?.toString() ?? '',
+            category: m['category']?.toString() ?? 'Other',
+            floor: m['floor']?.toString() ?? 'Ground Floor',
+            status: m['status']?.toString() ?? 'vacant',
+            areas: areas,
+          );
+        }).toList();
+        if (!mounted) return;
+        if (parsed.isEmpty) {
+          _showSnack('No properties found in PDF.');
+          return;
+        }
+        final rawName = file.name;
+        final companyName = parsed.first.companyName.isNotEmpty
+            ? parsed.first.companyName
+            : (rawName.contains('.') ? rawName.substring(0, rawName.lastIndexOf('.')).trim() : rawName.trim());
+        final confirmed = await _showImportPreview(parsed, companyName);
+        if (confirmed == true && mounted) {
+          context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
+          _showSnack('${parsed.length} units imported from PDF.');
+        }
+      } on DioException catch (e) {
+        if (mounted) _showSnack('PDF import failed: ${e.response?.data ?? e.message}');
+      }
       return;
     }
     if (ext == 'csv') {
@@ -179,6 +230,16 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     );
   }
 
+  void _exportCsv() {
+    final units = context.read<LeasingProvider>().units;
+    if (units.isEmpty) { _showSnack('No properties to export.'); return; }
+    final csv = buildCsv(
+      ['ID', 'Name', 'Portfolio', 'Category', 'Floor', 'Status', 'Total Rent (₹)'],
+      units.map((u) => [u.id, u.name, u.companyName, u.category, u.floor, u.status, u.totalRent]).toList(),
+    );
+    downloadCsv(csv, 'properties_${DateTime.now().millisecondsSinceEpoch}.csv');
+  }
+
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -191,14 +252,9 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
   }
 
   Future<void> _openAdd() async {
-    final provider = context.read<LeasingProvider>();
     final result = await showLeasingForm(context);
     if (result != null && mounted) {
-      // Tag with selected company or default
-      final unit = result.copyWith(
-        companyName: provider.selectedCompany ?? 'Bogineni Black',
-      );
-      await provider.add(unit);
+      await context.read<LeasingProvider>().add(result);
     }
   }
 
@@ -243,6 +299,38 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
           const SnackBar(content: Text('Failed to trigger agent')),
         );
       }
+    }
+  }
+
+  Future<void> _confirmDeleteCompany(CompanySummary summary) async {
+    final unitCount = summary.units.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg,
+        title: const Text('Delete Portfolio?',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          'Delete "${summary.name}" and all $unitCount ${unitCount == 1 ? 'property' : 'properties'} under it?\n\nThis will also remove all tenants linked to these properties. This cannot be undone.',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete All',
+                style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await context.read<LeasingProvider>().deletePortfolio(summary);
     }
   }
 
@@ -300,7 +388,9 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
         return _CompanyView(
           provider: provider,
           onImport: _importFile,
+          onExport: _exportCsv,
           onAdd: _openAdd,
+          onDeleteCompany: _confirmDeleteCompany,
         );
       },
     );
@@ -315,12 +405,16 @@ class _CompanyView extends StatelessWidget {
   const _CompanyView({
     required this.provider,
     required this.onImport,
+    required this.onExport,
     required this.onAdd,
+    required this.onDeleteCompany,
   });
 
   final LeasingProvider provider;
   final VoidCallback onImport;
+  final VoidCallback onExport;
   final VoidCallback onAdd;
+  final ValueChanged<CompanySummary> onDeleteCompany;
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +451,13 @@ class _CompanyView extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
+                AppButton(
+                  label: 'Export CSV',
+                  icon: Icons.download_outlined,
+                  variant: AppButtonVariant.ghost,
+                  onPressed: onExport,
+                ),
+                const SizedBox(width: AppDimensions.spaceSM),
                 AppButton(
                   label: 'Import File',
                   icon: Icons.upload_file_outlined,
@@ -395,8 +496,8 @@ class _CompanyView extends StatelessWidget {
                           .map((c) => _CompanyCard(
                                 summary: c,
                                 fmt: fmt,
-                                onTap: () =>
-                                    provider.selectCompany(c.name),
+                                onTap: () => provider.selectCompany(c.name),
+                                onDelete: () => onDeleteCompany(c),
                               ))
                           .toList(),
                     )
@@ -405,12 +506,12 @@ class _CompanyView extends StatelessWidget {
                       runSpacing: AppDimensions.spaceMD,
                       children: provider.companies
                           .map((c) => SizedBox(
-                                width: isMobile ? double.infinity : 420,
+                                width: 420,
                                 child: _CompanyCard(
                                   summary: c,
                                   fmt: fmt,
-                                  onTap: () =>
-                                      provider.selectCompany(c.name),
+                                  onTap: () => provider.selectCompany(c.name),
+                                  onDelete: () => onDeleteCompany(c),
                                 ),
                               ))
                           .toList(),
@@ -490,11 +591,13 @@ class _CompanyCard extends StatefulWidget {
     required this.summary,
     required this.fmt,
     required this.onTap,
+    required this.onDelete,
   });
 
   final CompanySummary summary;
   final NumberFormat fmt;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   State<_CompanyCard> createState() => _CompanyCardState();
@@ -563,8 +666,15 @@ class _CompanyCardState extends State<_CompanyCard> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios,
-                      size: 14, color: AppColors.textMuted),
+                  if (_hovered)
+                    GestureDetector(
+                      onTap: widget.onDelete,
+                      child: const Icon(Icons.delete_outline,
+                          size: AppDimensions.iconMD, color: AppColors.error),
+                    )
+                  else
+                    const Icon(Icons.arrow_forward_ios,
+                        size: 14, color: AppColors.textMuted),
                 ],
               ),
               const SizedBox(height: AppDimensions.spaceLG),
@@ -1204,9 +1314,10 @@ class _ActionBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(left: AppDimensions.spaceXS),
+        padding: const EdgeInsets.all(AppDimensions.spaceSM),
         child: Icon(icon,
             size: AppDimensions.iconMD,
             color: color ?? AppColors.textMuted),

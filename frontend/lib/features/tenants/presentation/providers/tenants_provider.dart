@@ -73,4 +73,11 @@ class TenantsProvider extends BaseProvider {
       return tenant;
     });
   }
+
+  Future<void> deleteTenant(String id) async {
+    await runAsync(() async {
+      await _repository.deleteTenant(id);
+      _tenants = _tenants.where((t) => t.id != id).toList();
+    });
+  }
 }

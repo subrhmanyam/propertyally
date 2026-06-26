@@ -53,16 +53,17 @@ create trigger on_auth_user_created
 -- 2. PROPERTIES / LEASING UNITS
 -- ================================================================
 create table if not exists leasing_units (
-  id          text primary key default gen_random_uuid()::text,
-  name        text not null,
-  category    text not null,          -- Restaurant | Office | Shop | etc.
-  floor       text not null,          -- Ground Floor | First Floor | etc.
-  status      text not null default 'vacant',  -- occupied | vacant | in_house | owner_occupied
-  contact     text,
-  email       text,
-  notes       text,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  id           text primary key default gen_random_uuid()::text,
+  name         text not null,
+  company_name text,                   -- Owner / portfolio group name
+  category     text not null,          -- Restaurant | Office | Shop | etc.
+  floor        text not null,          -- Ground Floor | First Floor | etc.
+  status       text not null default 'vacant',  -- occupied | vacant | in_house | owner_occupied
+  contact      text,
+  email        text,
+  notes        text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
 );
 
 create trigger leasing_units_updated_at

@@ -56,8 +56,7 @@ class LeasingUnit {
   final String name;
   final String companyName;
 
-  /// Restaurant | Brewery | Cafe & Restaurant | Office | Residence |
-  /// Shop | Event/Party | Studio Room | Co-working | Parking
+  /// Apartment/Flat | Office Space | Residential Plot | Farmhouse | ...
   final String category;
 
   /// Ground Floor | First Floor | Second Floor | Outdoor
@@ -132,8 +131,6 @@ class LeasingUnit {
         if (email != null) 'email': email,
         if (notes != null) 'notes': notes,
       };
-
-  // ── Actual Bogineni leasing data (from BOGINENI LEASING AREA STATEMENT) ──
 
   static const List<String> categories = [
     'Restaurant',

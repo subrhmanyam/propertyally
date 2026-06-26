@@ -8,7 +8,7 @@ class ApiConfig {
   // In production: flutter build web --dart-define=BACKEND_URL=https://your-backend.onrender.com
   static const String _backend = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://localhost:8000',
+    defaultValue: 'https://bogi-api-465312640914.asia-south1.run.app',
   );
   static const String baseUrl = _backend;
   static const String propertiesBaseUrl = _backend;

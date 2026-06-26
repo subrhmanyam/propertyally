@@ -12,7 +12,7 @@ from starlette.requests import Request
 
 from routers import (
     accounting, applications, auth, calendar, leasing, listing_agent, listings,
-    maintenance, notifications, reports, service_catalog, service_requests,
+    maintenance, notifications, reports, search, service_catalog, service_requests,
     stripe_payments, tasks, tenant, tenants,
 )
 
@@ -63,6 +63,7 @@ app.include_router(service_catalog.router, prefix="/api/v1/service-catalog", tag
 app.include_router(service_requests.router, prefix="/api/v1/service-requests", tags=["Service Requests"])
 app.include_router(stripe_payments.router,  prefix="/api/v1/payments",        tags=["Payments"])
 app.include_router(calendar.router,         prefix="/api/v1/calendar",         tags=["Calendar"])
+app.include_router(search.router,           prefix="/api/v1/search",            tags=["Search"])
 
 
 # ---------------------------------------------------------------------------

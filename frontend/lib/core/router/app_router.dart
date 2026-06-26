@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../features/accounting/presentation/screens/accounting_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/calendar/presentation/screens/calendar_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/listings/presentation/screens/listing_detail_screen.dart';
 import '../../features/listings/presentation/screens/listings_screen.dart';
 import '../../features/maintenance/presentation/screens/maintenance_screen.dart';
+import '../../features/reports/presentation/screens/reports_screen.dart';
 import '../../features/services/presentation/screens/admin_services_screen.dart';
 import '../../features/tasks/presentation/screens/tasks_screen.dart';
 import '../../features/properties/presentation/screens/leasing_list_screen.dart';
@@ -42,7 +44,7 @@ class AppRouter {
         final isTenant = authProvider.isTenant;
         final loc = state.matchedLocation;
         final goingToLogin = loc == '/login';
-        final goingToTenant = loc.startsWith('/tenant');
+        final goingToTenant = loc == '/tenant' || loc.startsWith('/tenant/');
         final goingToAdmin = !goingToLogin && !goingToTenant;
 
         if (!loggedIn && !goingToLogin) return '/login';
@@ -116,8 +118,7 @@ class AppRouter {
             GoRoute(
               path: '/reports',
               name: 'reports',
-              pageBuilder: (_, s) => _page(s,
-                  const _ComingSoonScreen(title: 'Reports', icon: Icons.bar_chart_rounded)),
+              pageBuilder: (_, s) => _page(s, const ReportsScreen()),
             ),
             GoRoute(
               path: '/listings',
@@ -135,8 +136,7 @@ class AppRouter {
             GoRoute(
               path: '/calendar',
               name: 'calendar',
-              pageBuilder: (_, s) => _page(s,
-                  const _ComingSoonScreen(title: 'Calendar', icon: Icons.calendar_month_outlined)),
+              pageBuilder: (_, s) => _page(s, const CalendarScreen()),
             ),
             GoRoute(
               path: '/documents',

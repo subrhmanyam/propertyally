@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.domain.exceptions import AuthServiceError
-from app.interfaces.api.v1.routes.auth_router import auth_router
+from app.interfaces.api.v1.routes.auth_router import router as auth_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 
-app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(auth_router)  # prefix and tags already defined in the router
 
 
 # ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ import '../../domain/entities/leasing_unit.dart';
 class LeasingUnitDraft {
   LeasingUnitDraft({LeasingUnit? unit})
       : name = unit?.name ?? '',
+        companyName = unit?.companyName ?? '',
         category = unit?.category ?? LeasingUnit.categories.first,
         floor = unit?.floor ?? LeasingUnit.floors.first,
         status = unit?.status ?? 'vacant',
@@ -23,7 +24,7 @@ class LeasingUnitDraft {
         areas = unit?.areas.map((a) => AreaEntryDraft.from(a)).toList() ??
             [AreaEntryDraft()];
 
-  String name, category, floor, status, contact, email, notes;
+  String name, companyName, category, floor, status, contact, email, notes;
   List<AreaEntryDraft> areas;
 }
 
@@ -111,12 +112,16 @@ class _LeasingFormSheet extends StatefulWidget {
 }
 
 class _LeasingFormSheetState extends State<_LeasingFormSheet> {
+  static const _kCustom = '__custom__';
+
   late final LeasingUnitDraft _draft;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _companyController = TextEditingController();
   final _contactController = TextEditingController();
   final _emailController = TextEditingController();
   final _notesController = TextEditingController();
+  final _customCategoryController = TextEditingController();
   final _fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
 
   @override
@@ -124,25 +129,53 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
     super.initState();
     _draft = LeasingUnitDraft(unit: widget.unit);
     _nameController.text = _draft.name;
+    _companyController.text = _draft.companyName;
     _contactController.text = _draft.contact;
     _emailController.text = _draft.email;
     _notesController.text = _draft.notes;
+
+    // If saved category is not in the standard list, treat it as custom Other.
+    if (_draft.category.isNotEmpty &&
+        !LeasingUnit.categories.contains(_draft.category)) {
+      _customCategoryController.text = _draft.category;
+      _draft.category = _kCustom;
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _companyController.dispose();
     _contactController.dispose();
     _emailController.dispose();
     _notesController.dispose();
+    _customCategoryController.dispose();
     for (final a in _draft.areas) {
       a.dispose();
     }
     super.dispose();
   }
 
+  void _onCategoryChanged(String? v) {
+    if (v == null) return;
+    setState(() {
+      if (v == 'Other') {
+        _draft.category = _kCustom;
+        _customCategoryController.clear();
+      } else {
+        _draft.category = v;
+        _customCategoryController.clear();
+      }
+    });
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+
+    final category = _draft.category == _kCustom
+        ? _customCategoryController.text.trim()
+        : _draft.category;
+    if (category.isEmpty) return;
 
     final areas = _draft.areas.map((a) => a.toAreaEntry()).toList();
     final id = widget.unit?.id ??
@@ -152,7 +185,8 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
     final result = LeasingUnit(
       id: id,
       name: _nameController.text.trim(),
-      category: _draft.category,
+      companyName: _companyController.text.trim(),
+      category: category,
       floor: _draft.floor,
       status: _draft.status,
       areas: areas,
@@ -208,42 +242,74 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
                     _SectionLabel(AppStrings.basicInfo),
                     const SizedBox(height: AppDimensions.spaceSM),
 
-                    // Name
-                    _Field(
-                      label: AppStrings.tenantName,
-                      controller: _nameController,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: AppDimensions.spaceSM),
-
-                    // Category + Floor
+                    // Owner Name + Property Name
                     Row(
                       children: [
                         Expanded(
-                          child: _DropdownField(
-                            label: AppStrings.category,
-                            value: _draft.category,
-                            items: LeasingUnit.categories,
-                            onChanged: (v) =>
-                                setState(() => _draft.category = v!),
+                          child: _Field(
+                            label: 'Owner Name',
+                            controller: _companyController,
+                            hint: 'e.g. Bogineni Group',
+                            validator: (v) =>
+                                (v == null || v.trim().isEmpty) ? 'Name missing' : null,
                           ),
                         ),
                         const SizedBox(width: AppDimensions.spaceSM),
                         Expanded(
-                          child: _DropdownField(
-                            label: AppStrings.floorLevel,
-                            value: _draft.floor,
-                            items: [
-                              ...LeasingUnit.floors,
-                              'Ground Floor & First Floor',
-                              'Ground Floor & First Floor & Second Floor',
-                            ],
-                            onChanged: (v) =>
-                                setState(() => _draft.floor = v!),
+                          child: _Field(
+                            label: 'Property Name',
+                            controller: _nameController,
+                            hint: 'e.g. Nandhini Restaurant',
+                            validator: (v) =>
+                                (v == null || v.trim().isEmpty) ? 'Required' : null,
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: AppDimensions.spaceSM),
+
+                    // Property Category
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DropdownField(
+                            label: 'Property Category',
+                            value: _draft.category == _kCustom
+                                ? 'Other'
+                                : (_draft.category.isEmpty
+                                    ? LeasingUnit.categories.first
+                                    : _draft.category),
+                            items: LeasingUnit.categories,
+                            onChanged: _onCategoryChanged,
+                          ),
+                        ),
+                        if (_draft.category == _kCustom) ...[
+                          const SizedBox(width: AppDimensions.spaceSM),
+                          Expanded(
+                            child: _Field(
+                              label: 'Custom Category',
+                              controller: _customCategoryController,
+                              validator: (v) =>
+                                  (v == null || v.trim().isEmpty)
+                                      ? 'Required'
+                                      : null,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: AppDimensions.spaceSM),
+
+                    // Floor
+                    _DropdownField(
+                      label: AppStrings.floorLevel,
+                      value: _draft.floor,
+                      items: [
+                        ...LeasingUnit.floors,
+                        'Ground Floor & First Floor',
+                        'Ground Floor & First Floor & Second Floor',
+                      ],
+                      onChanged: (v) => setState(() => _draft.floor = v!),
                     ),
                     const SizedBox(height: AppDimensions.spaceSM),
 
@@ -589,6 +655,7 @@ class _Field extends StatelessWidget {
   const _Field({
     required this.label,
     required this.controller,
+    this.hint,
     this.validator,
     this.keyboardType,
     this.maxLines = 1,
@@ -597,6 +664,7 @@ class _Field extends StatelessWidget {
 
   final String label;
   final TextEditingController controller;
+  final String? hint;
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
   final int maxLines;
@@ -622,6 +690,11 @@ class _Field extends StatelessWidget {
             color: AppColors.textPrimary,
           ),
           decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(
+              fontSize: AppDimensions.fontBase,
+              color: AppColors.textMuted,
+            ),
             contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppDimensions.spaceSM, vertical: AppDimensions.spaceSM),
             enabledBorder: OutlineInputBorder(

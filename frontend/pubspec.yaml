@@ -40,6 +40,8 @@ dependencies:
   printing: ^5.12.0
   # Persistent settings storage
   shared_preferences: ^2.2.3
+  # Web APIs (modern replacement for dart:html)
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

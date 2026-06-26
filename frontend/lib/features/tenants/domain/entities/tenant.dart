@@ -60,6 +60,8 @@ class Tenant {
     required this.status,
     this.unitId,
     this.propertyId,
+    this.companyName,
+    this.floor,
     this.moveInDate,
     this.emergencyContactName,
     this.emergencyContactPhone,
@@ -73,6 +75,8 @@ class Tenant {
   final String status; // 'active', 'inactive', 'pending'
   final String? unitId;
   final String? propertyId;
+  final String? companyName;
+  final String? floor;
   final DateTime? moveInDate;
   final String? emergencyContactName;
   final String? emergencyContactPhone;
@@ -86,8 +90,10 @@ class Tenant {
         email: json['email']?.toString() ?? '',
         phone: json['phone']?.toString() ?? '',
         status: json['status']?.toString() ?? 'active',
-        unitId: json['unit_id']?.toString(),
-        propertyId: json['property_id']?.toString(),
+        unitId: json['leasing_unit_id']?.toString(),
+        propertyId: json['leasing_unit_id']?.toString(),
+        companyName: json['company_name']?.toString(),
+        floor: json['floor']?.toString(),
         moveInDate:
             DateTime.tryParse(json['move_in_date']?.toString() ?? ''),
         emergencyContactName: json['emergency_contact_name']?.toString(),
@@ -101,8 +107,7 @@ class Tenant {
         'email': email,
         'phone': phone,
         'status': status,
-        if (unitId != null) 'unit_id': unitId,
-        if (propertyId != null) 'property_id': propertyId,
+        if (unitId != null) 'leasing_unit_id': unitId,
         if (moveInDate != null) 'move_in_date': moveInDate!.toIso8601String(),
         if (emergencyContactName != null)
           'emergency_contact_name': emergencyContactName,

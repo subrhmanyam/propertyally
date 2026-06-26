@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from typing import Any
 
+import anthropic
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from db import get_supabase
+
+_anthropic_client: anthropic.Anthropic | None = None
+
+
+def _get_anthropic() -> anthropic.Anthropic:
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.Anthropic()
+    return _anthropic_client
 
 router = APIRouter()
 
@@ -188,6 +200,78 @@ async def get_agreement(unit_id: str) -> dict[str, Any]:
     if not res.data:
         raise HTTPException(status_code=404, detail="No agreement uploaded for this unit.")
     return res.data[0]
+
+
+@router.post("/import-pdf")
+async def import_pdf_units(
+    file: UploadFile = File(...),
+) -> list[dict[str, Any]]:
+    """
+    Parse a Leasing Area Statement PDF (or image) and return a list of leasing units.
+    Uses Claude to extract property name, floor, category, area entries, and status.
+    """
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    media_type = file.content_type or _MIME_FROM_EXT.get(ext, "application/pdf")
+    if media_type not in _ALLOWED_MIME:
+        raise HTTPException(status_code=415, detail="Upload a PDF or image.")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 20 MB).")
+
+    b64 = base64.standard_b64encode(file_bytes).decode()
+
+    prompt = """
+You are parsing a Leasing Area Statement spreadsheet exported to PDF.
+Extract every property (unit) listed and return a JSON array.
+
+Each object must have:
+  name        - property name (string)
+  company_name - portfolio/owner name from the filename or header if visible, else ""
+  category    - one of: Restaurant, Brewery, Cafe & Restaurant, Office, Residence, Shop,
+                 Event/Party, Studio Room, Co-working, Parking, Land/Site, Other
+  floor       - Ground Floor | First Floor | Second Floor | Outdoor | or combined like
+                 "Ground Floor & First Floor" when the property spans multiple floors
+  status      - occupied | vacant | in_house | owner_occupied
+  areas       - array of {type: "covered"|"open"|"common", sqft: number, rate: number}
+
+Rules:
+- If a property spans multiple floor sections, merge all area rows under one unit.
+- "In-house operation" → in_house, "Owner-occupied" → owner_occupied.
+- Common Area / Pathway rows: type = "common", rate = 0 if not stated.
+- Rows with #REF! for rate: use 0.
+- Return ONLY valid JSON, no markdown, no explanation.
+"""
+
+    msg = _get_anthropic().messages.create(
+        model="claude-opus-4-8",
+        max_tokens=4096,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "document",
+                    "source": {"type": "base64", "media_type": media_type, "data": b64},
+                },
+                {"type": "text", "text": prompt},
+            ],
+        }],
+    )
+
+    raw = msg.content[0].text.strip()
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+    try:
+        units = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Claude returned invalid JSON: {e}")
+
+    if not isinstance(units, list):
+        raise HTTPException(status_code=502, detail="Expected a JSON array from Claude.")
+
+    return units
 
 
 @router.get("/summary/occupancy")

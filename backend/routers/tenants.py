@@ -28,6 +28,10 @@ class TenantIn(BaseModel):
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
     notes: str | None = None
+    company_name: str | None = None
+    business_type: str | None = None
+    floor: str | None = None
+    area_entries: list | None = None
 
 
 class LeaseIn(BaseModel):
@@ -68,14 +72,14 @@ async def get_tenant(tenant_id: str) -> dict[str, Any]:
 @router.post("/", status_code=201)
 async def create_tenant(payload: TenantIn) -> dict[str, Any]:
     sb = get_supabase()
-    res = sb.table("tenants").insert(payload.model_dump()).execute()
+    res = sb.table("tenants").insert(payload.model_dump(exclude_none=True)).execute()
     return res.data[0]
 
 
 @router.put("/{tenant_id}")
 async def update_tenant(tenant_id: str, payload: TenantIn) -> dict[str, Any]:
     sb = get_supabase()
-    res = sb.table("tenants").update(payload.model_dump()).eq("id", tenant_id).execute()
+    res = sb.table("tenants").update(payload.model_dump(exclude_none=True)).eq("id", tenant_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Tenant not found")
     return res.data[0]

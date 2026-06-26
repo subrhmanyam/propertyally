@@ -32,6 +32,7 @@ class AbstractUserRepository(ABC):
         password_hash: str,
         full_name: str,
         role: UserRole,
+        supabase_uid: str | None = None,
     ) -> User:
         """Persist a new user record and return the created entity."""
         ...

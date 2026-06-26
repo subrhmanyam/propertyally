@@ -127,8 +127,23 @@ class LeasingProvider extends BaseProvider {
   }
 
   Future<void> delete(String id) async {
+    final matches = _units.where((u) => u.id == id);
+    final deletedUnit = matches.isNotEmpty ? matches.first : null;
     await _repo.delete(id);
     _units = _units.where((u) => u.id != id).toList();
+    // If we just removed the last unit in the selected company, go back to Level 1
+    if (deletedUnit != null && _selectedCompany == deletedUnit.companyName) {
+      final stillHas = _units.any((u) => u.companyName == deletedUnit.companyName);
+      if (!stillHas) _selectedCompany = null;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deletePortfolio(CompanySummary summary) async {
+    final ids = summary.units.map((u) => u.id).toList();
+    await _repo.deletePortfolio(ids);
+    _units = _units.where((u) => u.companyName != summary.name).toList();
+    if (_selectedCompany == summary.name) _selectedCompany = null;
     notifyListeners();
   }
 
