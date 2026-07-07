@@ -74,6 +74,11 @@ class TenantsProvider extends BaseProvider {
     });
   }
 
+  Future<void> updateTenant(String id, Map<String, dynamic> data) async {
+    await runAsync(() => _repository.updateTenant(id, data));
+    await loadTenants();
+  }
+
   Future<void> deleteTenant(String id) async {
     await runAsync(() async {
       await _repository.deleteTenant(id);

@@ -25,6 +25,7 @@ class TenantListScreen extends StatefulWidget {
 
 class _TenantListScreenState extends State<TenantListScreen> {
   LeasingUnit? _selectedUnit;
+  bool _showUnassigned = false;
 
   @override
   void initState() {
@@ -145,6 +146,57 @@ class _TenantListScreenState extends State<TenantListScreen> {
     }
   }
 
+  Future<void> _openAssignProperty(Tenant tenant, List<LeasingUnit> units) async {
+    if (units.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a property first.')),
+      );
+      return;
+    }
+    String selected = units.first.id;
+    final unitId = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.cardBg,
+          title: const Text('Assign Property',
+              style: TextStyle(color: AppColors.textPrimary)),
+          content: DropdownButtonFormField<String>(
+            initialValue: selected,
+            dropdownColor: AppColors.cardBg,
+            isExpanded: true,
+            style: const TextStyle(color: AppColors.textPrimary),
+            items: units
+                .map((u) => DropdownMenuItem(
+                      value: u.id,
+                      child: Text('${u.name}  ·  ${u.category}',
+                          overflow: TextOverflow.ellipsis),
+                    ))
+                .toList(),
+            onChanged: (v) => setDialogState(() => selected = v!),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textMuted)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, selected),
+              child: const Text('Assign',
+                  style: TextStyle(color: AppColors.accentGold)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (unitId != null && mounted) {
+      await context
+          .read<TenantsProvider>()
+          .updateTenant(tenant.id, {'leasing_unit_id': unitId});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<TenantsProvider, LeasingProvider>(
@@ -166,6 +218,25 @@ class _TenantListScreenState extends State<TenantListScreen> {
             onDeleteTenant: _confirmDeleteTenant,
             onDeleteProperty: _confirmDeleteProperty,
             onEditProperty: _openEditProperty,
+          );
+        }
+
+        final unitIds = lp.units.map((u) => u.id).toSet();
+        final unassignedTenants = tp.tenants
+            .where((t) =>
+                t.unitId == null ||
+                t.unitId!.isEmpty ||
+                !unitIds.contains(t.unitId))
+            .toList();
+
+        // ── Level 2b: tenants with no property assigned ─────────────
+        if (_showUnassigned) {
+          return _UnassignedTenantsView(
+            tenants: unassignedTenants,
+            isLoading: tp.isLoading,
+            onBack: () => setState(() => _showUnassigned = false),
+            onDeleteTenant: _confirmDeleteTenant,
+            onAssignProperty: (t) => _openAssignProperty(t, lp.units),
           );
         }
 
@@ -215,6 +286,13 @@ class _TenantListScreenState extends State<TenantListScreen> {
                   ],
                 ),
                 const SizedBox(height: AppDimensions.spaceLG),
+                if (!lp.isLoading && !tp.isLoading && unassignedTenants.isNotEmpty) ...[
+                  _UnassignedBanner(
+                    count: unassignedTenants.length,
+                    onTap: () => setState(() => _showUnassigned = true),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceLG),
+                ],
                 if (lp.isLoading || tp.isLoading)
                   const Center(
                     child: Padding(
@@ -242,6 +320,58 @@ class _TenantListScreenState extends State<TenantListScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+// ── Warning banner: tenants missing a property ────────────────────────
+
+class _UnassignedBanner extends StatelessWidget {
+  const _UnassignedBanner({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spaceMD, vertical: AppDimensions.spaceSM),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withValues(alpha: 0.08),
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  size: AppDimensions.iconMD, color: AppColors.warning),
+              const SizedBox(width: AppDimensions.spaceSM),
+              Expanded(
+                child: Text(
+                  '$count tenant${count == 1 ? '' : 's'} without a property assigned',
+                  style: const TextStyle(
+                      fontSize: AppDimensions.fontBase,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary),
+                ),
+              ),
+              const Text('Review',
+                  style: TextStyle(
+                      fontSize: AppDimensions.fontSM,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.warning)),
+              const SizedBox(width: AppDimensions.spaceXS),
+              const Icon(Icons.arrow_forward_ios,
+                  size: 12, color: AppColors.warning),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -389,7 +519,110 @@ class _PropertyTenantsView extends StatelessWidget {
               )
             else
               _TenantVCardGrid(
-                  tenants: tenants, onDelete: onDeleteTenant),
+                tenants: tenants,
+                onDelete: onDeleteTenant,
+                propertyName: unit.name,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Level 2b — tenants with no property assigned ──────────────────────
+
+class _UnassignedTenantsView extends StatelessWidget {
+  const _UnassignedTenantsView({
+    required this.tenants,
+    required this.isLoading,
+    required this.onBack,
+    required this.onDeleteTenant,
+    required this.onAssignProperty,
+  });
+
+  final List<Tenant> tenants;
+  final bool isLoading;
+  final VoidCallback onBack;
+  final ValueChanged<Tenant> onDeleteTenant;
+  final ValueChanged<Tenant> onAssignProperty;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimensions.pagePadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: onBack,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.arrow_back,
+                            size: AppDimensions.iconMD,
+                            color: AppColors.textMuted),
+                        SizedBox(width: AppDimensions.spaceXS),
+                        Text('Properties',
+                            style: TextStyle(
+                                fontSize: AppDimensions.fontBase,
+                                color: AppColors.textMuted)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spaceSM),
+                const Text('/',
+                    style: TextStyle(
+                        color: AppColors.textMuted, fontSize: 18)),
+                const SizedBox(width: AppDimensions.spaceSM),
+                const Icon(Icons.warning_amber_rounded,
+                    size: AppDimensions.iconMD, color: AppColors.warning),
+                const SizedBox(width: AppDimensions.spaceXS),
+                const Expanded(
+                  child: Text(
+                    'Unassigned Tenants',
+                    style: TextStyle(
+                        fontSize: AppDimensions.fontH2,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimensions.spaceXS),
+            const Text(
+              'These tenants aren\'t linked to a property. Assign one so they show up under the right property.',
+              style: TextStyle(
+                  fontSize: AppDimensions.fontBase, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: AppDimensions.spaceLG),
+            if (isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 60),
+                  child:
+                      CircularProgressIndicator(color: AppColors.accentGold),
+                ),
+              )
+            else if (tenants.isEmpty)
+              const EmptyState(
+                icon: Icons.check_circle_outline,
+                title: 'All Tenants Assigned',
+                description: 'Every tenant is linked to a property.',
+              )
+            else
+              _TenantVCardGrid(
+                tenants: tenants,
+                onDelete: onDeleteTenant,
+                onAssignProperty: onAssignProperty,
+              ),
           ],
         ),
       ),
@@ -420,10 +653,20 @@ class _InfoChip extends StatelessWidget {
 // ── Tenant vcard grid ─────────────────────────────────────────────────
 
 class _TenantVCardGrid extends StatelessWidget {
-  const _TenantVCardGrid({required this.tenants, required this.onDelete});
+  const _TenantVCardGrid({
+    required this.tenants,
+    required this.onDelete,
+    this.propertyName,
+    this.onAssignProperty,
+  });
 
   final List<Tenant> tenants;
   final ValueChanged<Tenant> onDelete;
+
+  /// Property name shared by every tenant in this grid (all tenants here
+  /// belong to the same property). Null when tenants have no property.
+  final String? propertyName;
+  final ValueChanged<Tenant>? onAssignProperty;
 
   @override
   Widget build(BuildContext context) {
@@ -434,22 +677,33 @@ class _TenantVCardGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
-        childAspectRatio: cols == 1 ? 3.5 : 2.4,
+        childAspectRatio: cols == 1 ? 3.0 : 2.1,
         crossAxisSpacing: AppDimensions.spaceMD,
         mainAxisSpacing: AppDimensions.spaceMD,
       ),
       itemCount: tenants.length,
-      itemBuilder: (_, i) =>
-          _TenantVCard(tenant: tenants[i], onDelete: onDelete),
+      itemBuilder: (_, i) => _TenantVCard(
+        tenant: tenants[i],
+        onDelete: onDelete,
+        propertyName: propertyName,
+        onAssignProperty: onAssignProperty,
+      ),
     );
   }
 }
 
 class _TenantVCard extends StatefulWidget {
-  const _TenantVCard({required this.tenant, required this.onDelete});
+  const _TenantVCard({
+    required this.tenant,
+    required this.onDelete,
+    this.propertyName,
+    this.onAssignProperty,
+  });
 
   final Tenant tenant;
   final ValueChanged<Tenant> onDelete;
+  final String? propertyName;
+  final ValueChanged<Tenant>? onAssignProperty;
 
   @override
   State<_TenantVCard> createState() => _TenantVCardState();
@@ -533,6 +787,60 @@ class _TenantVCardState extends State<_TenantVCard> {
                 ),
               ],
             ),
+
+            // ── Property name / missing-property warning ─────────
+            if (widget.propertyName != null && widget.propertyName!.isNotEmpty)
+              Row(
+                children: [
+                  const Icon(Icons.apartment_outlined,
+                      size: 12, color: AppColors.textMuted),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      widget.propertyName!,
+                      style: const TextStyle(
+                          fontSize: AppDimensions.fontXS,
+                          color: AppColors.textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 12, color: AppColors.warning),
+                  const SizedBox(width: 4),
+                  const Expanded(
+                    child: Text(
+                      'No property assigned',
+                      style: TextStyle(
+                          fontSize: AppDimensions.fontXS,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.warning),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (widget.onAssignProperty != null)
+                    GestureDetector(
+                      onTap: () => widget.onAssignProperty!(t),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Text(
+                          'Assign',
+                          style: TextStyle(
+                              fontSize: AppDimensions.fontXS,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accentGold,
+                              decoration: TextDecoration.underline),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
 
             // ── Bottom: phone + move-in ──────────────────────────
             Row(

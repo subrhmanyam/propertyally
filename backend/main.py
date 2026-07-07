@@ -11,9 +11,9 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from routers import (
-    accounting, applications, auth, calendar, leasing, listing_agent, listings,
-    maintenance, notifications, reports, search, service_catalog, service_requests,
-    stripe_payments, tasks, tenant, tenants,
+    accounting, applications, auth, calendar, documents, leasing, listing_agent,
+    listings, maintenance, notifications, reports, search, service_catalog,
+    service_requests, stripe_payments, tasks, tenant, tenants,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +64,7 @@ app.include_router(service_requests.router, prefix="/api/v1/service-requests", t
 app.include_router(stripe_payments.router,  prefix="/api/v1/payments",        tags=["Payments"])
 app.include_router(calendar.router,         prefix="/api/v1/calendar",         tags=["Calendar"])
 app.include_router(search.router,           prefix="/api/v1/search",            tags=["Search"])
+app.include_router(documents.router,        prefix="/api/v1/documents",          tags=["Documents"])
 
 
 # ---------------------------------------------------------------------------

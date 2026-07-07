@@ -110,8 +110,8 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
             : (rawName.contains('.') ? rawName.substring(0, rawName.lastIndexOf('.')).trim() : rawName.trim());
         final confirmed = await _showImportPreview(parsed, companyName);
         if (confirmed == true && mounted) {
-          context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
-          _showSnack('${parsed.length} units imported from PDF.');
+          await context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
+          if (mounted) _showSnack('${parsed.length} units imported from PDF.');
         }
       } on DioException catch (e) {
         if (mounted) _showSnack('PDF import failed: ${e.response?.data ?? e.message}');
@@ -135,14 +135,15 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
 
     // File name (without extension) becomes the company/portfolio name
     final rawName = file.name;
-    final companyName = rawName.contains('.')
+    final baseName = rawName.contains('.')
         ? rawName.substring(0, rawName.lastIndexOf('.')).trim()
         : rawName.trim();
+    final companyName = baseName.replaceAll(RegExp(r'[-_]+'), ' ').trim();
 
     final confirmed = await _showImportPreview(parsed, companyName);
     if (confirmed == true && mounted) {
-      context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
-      _showSnack('${parsed.length} units imported under "$companyName".');
+      await context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
+      if (mounted) _showSnack('${parsed.length} units imported under "$companyName".');
     }
   }
 
@@ -648,6 +649,15 @@ class _CompanyCardState extends State<_CompanyCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(
+                          'OWNER',
+                          style: const TextStyle(
+                            fontSize: AppDimensions.fontXS,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
                         Text(
                           s.name,
                           style: const TextStyle(

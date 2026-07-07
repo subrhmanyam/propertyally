@@ -147,12 +147,15 @@ class LeasingProvider extends BaseProvider {
     notifyListeners();
   }
 
-  /// Bulk-import units, tagging them with [companyName].
-  void addImported(List<LeasingUnit> imported, {required String companyName}) {
-    final tagged = imported
-        .map((u) => u.copyWith(companyName: companyName))
-        .toList();
-    _units = [...tagged, ..._units];
+  /// Bulk-import units, tagging them with [companyName], and persist each
+  /// one so it survives a reload.
+  Future<void> addImported(
+    List<LeasingUnit> imported, {
+    required String companyName,
+  }) async {
+    final tagged = imported.map((u) => u.copyWith(companyName: companyName));
+    final saved = await Future.wait(tagged.map(_repo.insert));
+    _units = [...saved, ..._units];
     notifyListeners();
   }
 }

@@ -95,20 +95,22 @@ List<LeasingUnit> _parseNativeFormat(List<List<Data?>> rows) {
   int idCounter = DateTime.now().millisecondsSinceEpoch;
 
   String currentName = '';
-  String currentFloor = '';
   String currentCategory = '';
+  String currentStatus = '';
+  final currentFloors = <String>[];
   final currentAreas = <AreaEntry>[];
 
   void flush() {
-    if (currentName.isNotEmpty && currentAreas.isNotEmpty) {
+    if (currentName.isNotEmpty) {
       units.add(LeasingUnit(
         id: 'imp_${idCounter++}',
         name: currentName,
         category: currentCategory.isNotEmpty ? currentCategory : 'Other',
-        floor: currentFloor.isNotEmpty ? currentFloor : 'Ground Floor',
-        status: 'vacant',
+        floor: currentFloors.isNotEmpty ? currentFloors.join(' & ') : 'Ground Floor',
+        status: _normalizeStatus(currentStatus),
         areas: List.of(currentAreas),
       ));
+      currentFloors.clear();
       currentAreas.clear();
     }
   }
@@ -121,21 +123,32 @@ List<LeasingUnit> _parseNativeFormat(List<List<Data?>> rows) {
     final colB = _str(row.elementAtOrNull(1)); // Floor / area type
     final colC = _num(row.elementAtOrNull(2)); // Sq.ft (area)
     final colD = _num(row.elementAtOrNull(3)); // Rate
-    final colE = _str(row.elementAtOrNull(4)); // Category (sometimes)
+    final colF = _str(row.elementAtOrNull(5)); // Category
+    final colG = _str(row.elementAtOrNull(6)); // Status
 
     // Skip header row
     if (colB.toLowerCase().contains('floor') && colC == 0 && i == 0) continue;
     if (colB.toLowerCase() == 'area' || colA.toLowerCase() == 'floor') continue;
 
-    // New entity starts when column A is non-empty
-    if (colA.isNotEmpty && !_isFloorLabel(colA) && !_isAreaTypeLabel(colA)) {
+    // New entity starts when column A is non-empty (but not a stray
+    // dimension note like "Indoor : 20 x 31ft", which some rows carry
+    // in column A instead of leaving it blank).
+    if (colA.isNotEmpty &&
+        !_isFloorLabel(colA) &&
+        !_isAreaTypeLabel(colA) &&
+        !_looksLikeMeasurementNote(colA)) {
       flush();
       currentName = colA;
-      currentCategory = colE;
+      currentCategory = _normalizeCategory(colF);
+      currentStatus = colG;
     }
 
+    if (colF.isNotEmpty) currentCategory = _normalizeCategory(colF);
+    if (colG.isNotEmpty) currentStatus = colG;
+
     if (_isFloorLabel(colB)) {
-      currentFloor = colB;
+      final normalized = _normalizeFloorLabel(colB);
+      if (!currentFloors.contains(normalized)) currentFloors.add(normalized);
     } else if (_isAreaTypeLabel(colB) && colC > 0) {
       currentAreas.add(AreaEntry(
         type: _normalizeAreaType(colB),
@@ -185,13 +198,34 @@ double _num(Data? cell) {
   return double.tryParse(raw) ?? 0;
 }
 
+/// Fixes common source-sheet typos so the value matches
+/// [LeasingUnit.categories] (falls back to the raw value otherwise, which
+/// the edit form treats as a custom category).
+String _normalizeCategory(String s) {
+  final trimmed = s.trim();
+  final l = trimmed.toLowerCase();
+  if (l == 'resturant') return 'Restaurant';
+  if (l == 'cafe & resturant') return 'Cafe & Restaurant';
+  return trimmed;
+}
+
+bool _looksLikeMeasurementNote(String s) =>
+    RegExp(r'\d+\s*[x×]\s*\d+', caseSensitive: false).hasMatch(s);
+
 bool _isFloorLabel(String s) {
   final l = s.toLowerCase();
-  return l.contains('ground floor') ||
-      l.contains('first floor') ||
-      l.contains('second floor') ||
-      l.contains('outdoor') ||
-      l == 'floor';
+  return l.contains('floor') || l.contains('outdoor') || l == 'floor';
+}
+
+/// Fixes common source-sheet typos (e.g. "Secound Floor") so the stored
+/// value matches [LeasingUnit.floors].
+String _normalizeFloorLabel(String s) {
+  final l = s.toLowerCase();
+  if (l.contains('ground')) return 'Ground Floor';
+  if (l.contains('first')) return 'First Floor';
+  if (l.contains('sec')) return 'Second Floor'; // covers "Secound"/"Second"
+  if (l.contains('outdoor')) return 'Outdoor';
+  return s;
 }
 
 bool _isAreaTypeLabel(String s) {
