@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/utils/current_org.dart';
 import '../../../../core/utils/excel_importer.dart';
 import '../../../../core/utils/export_helper.dart';
 import '../../../../core/utils/responsive.dart';
@@ -54,6 +57,24 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
   }
 
   // ── File import ────────────────────────────────────────────────────
+
+  /// Archives the raw imported file in GCS (org_{org}/general/import/...),
+  /// alongside the parsed data. Best-effort: a failure here (e.g. the org
+  /// schema migration hasn't been run yet) must not block the import itself.
+  Future<void> _archiveImportFile(Uint8List bytes, String filename) async {
+    final orgId = await getCurrentOrgId();
+    if (orgId == null) return;
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+        'doc_type': 'import',
+        'org_id': orgId,
+      });
+      await ApiClient.properties.post('/api/v1/documents/upload', data: formData);
+    } catch (_) {
+      if (mounted) _showSnack('Imported, but could not archive the original file.');
+    }
+  }
 
   Future<void> _importFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -111,6 +132,7 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
         final confirmed = await _showImportPreview(parsed, companyName);
         if (confirmed == true && mounted) {
           await context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
+          await _archiveImportFile(bytes, file.name);
           if (mounted) _showSnack('${parsed.length} units imported from PDF.');
         }
       } on DioException catch (e) {
@@ -143,6 +165,7 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     final confirmed = await _showImportPreview(parsed, companyName);
     if (confirmed == true && mounted) {
       await context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
+      await _archiveImportFile(bytes, file.name);
       if (mounted) _showSnack('${parsed.length} units imported under "$companyName".');
     }
   }
