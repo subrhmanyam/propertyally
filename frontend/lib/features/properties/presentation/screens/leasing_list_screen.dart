@@ -63,15 +63,25 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
   /// schema migration hasn't been run yet) must not block the import itself.
   Future<void> _archiveImportFile(Uint8List bytes, String filename) async {
     final orgId = await getCurrentOrgId();
-    if (orgId == null) return;
+    if (orgId == null) {
+      debugPrint('GCS archive skipped for "$filename": no org for current user.');
+      return;
+    }
+    // The real object path (with its server-generated uuid prefix) is only
+    // known on success; this is the deterministic part, logged either way
+    // so a failure is still traceable to where the file should have landed.
+    final intendedPath = 'org_$orgId/general/import/$filename';
     try {
       final formData = FormData.fromMap({
         'file': MultipartFile.fromBytes(bytes, filename: filename),
         'doc_type': 'import',
         'org_id': orgId,
       });
-      await ApiClient.properties.post('/api/v1/documents/upload', data: formData);
-    } catch (_) {
+      final resp = await ApiClient.properties.post('/api/v1/documents/upload', data: formData);
+      final storagePath = (resp.data as Map?)?['storage_path'];
+      debugPrint('GCS archive OK for "$filename": $storagePath');
+    } catch (e) {
+      debugPrint('GCS archive FAILED for "$filename" (intended path: $intendedPath): $e');
       if (mounted) _showSnack('Imported, but could not archive the original file.');
     }
   }

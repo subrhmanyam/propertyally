@@ -38,6 +38,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    # Local Flutter dev picks a random port each run, so a static origin in
+    # ALLOWED_ORIGINS would break next session — allow any localhost port.
+    allow_origin_regex=r"http://localhost:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
