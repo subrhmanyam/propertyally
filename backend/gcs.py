@@ -95,6 +95,27 @@ def signed_url(object_path: str) -> str:
     )
 
 
+def generate_upload_url(object_path: str, content_type: str) -> str:
+    """Signed PUT URL so a browser can upload straight to GCS, bypassing
+    Cloud Run's ~32MB inbound request-body limit entirely for the file
+    transfer itself. The caller must PUT with this exact Content-Type —
+    GCS validates it against what the signature was generated for."""
+    email, token = _signing_email_and_token()
+    blob = get_bucket().blob(object_path)
+    return blob.generate_signed_url(
+        version="v4",
+        expiration=_SIGNED_URL_TTL,
+        method="PUT",
+        content_type=content_type,
+        service_account_email=email,
+        access_token=token,
+    )
+
+
+def download_bytes(object_path: str) -> bytes:
+    return get_bucket().blob(object_path).download_as_bytes()
+
+
 def upload_bytes(
     *,
     org_id: str,

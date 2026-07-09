@@ -4,37 +4,7 @@ Agreement document extractor — Claude vision/document API.
 Accepts a PDF or image of a lease/rental agreement and returns
 structured JSON with all key fields pre-populated.
 
-Supabase migration (run once in SQL editor):
-────────────────────────────────────────────
-create table if not exists unit_agreements (
-  id                  uuid primary key default gen_random_uuid(),
-  unit_id             text not null unique,
-  document_name       text,
-  document_type       text,           -- 'pdf' | 'image'
-  tenant_name         text,
-  total_area_sqft     float,
-  covered_area_sqft   float,
-  open_area_sqft      float,
-  monthly_rent        float,
-  monthly_maintenance float,
-  security_deposit    float,
-  lease_start_date    date,
-  lease_end_date      date,
-  notice_period_days  int,
-  payment_due_day     int,
-  tenant_gstin        text,
-  owner_name          text,
-  owner_gstin         text,
-  special_clauses     jsonb default '[]',
-  document_date       date,
-  is_gst_applicable   boolean default false,
-  cgst_rate           float,
-  sgst_rate           float,
-  raw_extraction      jsonb,
-  created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now()
-);
-create index if not exists idx_unit_agreements_unit on unit_agreements(unit_id);
+Table schema: supabase/migrations/005_unit_agreements.sql
 """
 
 from __future__ import annotations
@@ -71,26 +41,39 @@ _EXTRACTION_PROMPT = """Extract all key fields from this lease/rental agreement 
 
 {
   "tenant_name": string or null,
-  "property_name": string or null,
+  "tenant_address": string or null,
   "total_area_sqft": number or null,
   "covered_area_sqft": number or null,
   "open_area_sqft": number or null,
   "monthly_rent": number or null,
   "monthly_maintenance": number or null,
   "security_deposit": number or null,
+  "profit_sharing": string or null,
+  "maintenance_paid_by": "owner" | "tenant" | "shared" or null,
+  "furnishing_status": "fully_furnished" | "semi_furnished" | "unfurnished" or null,
+  "car_parking_count": number or null,
+  "amenities": [array of amenity strings, excluding car parking which has its own field],
   "lease_start_date": "YYYY-MM-DD" or null,
   "lease_end_date": "YYYY-MM-DD" or null,
   "notice_period_days": number or null,
   "payment_due_day": number or null,
   "tenant_gstin": string or null,
   "owner_name": string or null,
+  "owner_address": string or null,
   "owner_gstin": string or null,
   "document_date": "YYYY-MM-DD" or null,
   "is_gst_applicable": boolean,
   "cgst_rate": number or null,
   "sgst_rate": number or null,
   "special_clauses": [array of notable clause strings, max 5]
-}"""
+}
+
+Field notes:
+- tenant_address / owner_address: the full registered/correspondence address for each party, not the leased property's address.
+- profit_sharing: only for business/commercial leases with a revenue- or profit-share clause (e.g. "20% of gross monthly revenue to owner above ₹X"); null if the agreement is a flat rent with no sharing.
+- maintenance_paid_by: who bears the recurring maintenance charge / upkeep expenses per the agreement — "owner", "tenant", or "shared" if split.
+- furnishing_status: infer from any "furnished"/"semi-furnished"/"unfurnished" or fixtures/fittings clause; null if the document doesn't say.
+"""
 
 
 def _file_to_content_block(

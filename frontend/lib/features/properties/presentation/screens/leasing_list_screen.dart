@@ -462,50 +462,63 @@ class _CompanyView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Header ──
-            Row(
-              children: [
-                Column(
+            Builder(builder: (context) {
+              final title = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    AppStrings.properties,
+                    style: TextStyle(
+                      fontSize: AppDimensions.fontH2,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '${provider.companies.length} ${provider.companies.length == 1 ? 'portfolio' : 'portfolios'} · ${provider.totalUnits} units total',
+                    style: const TextStyle(
+                      fontSize: AppDimensions.fontBase,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              );
+              final buttons = Wrap(
+                spacing: AppDimensions.spaceSM,
+                runSpacing: AppDimensions.spaceSM,
+                children: [
+                  AppButton(
+                    label: 'Export CSV',
+                    icon: Icons.download_outlined,
+                    variant: AppButtonVariant.ghost,
+                    onPressed: onExport,
+                  ),
+                  AppButton(
+                    label: 'Import File',
+                    icon: Icons.upload_file_outlined,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onImport,
+                  ),
+                  AppButton(
+                    label: 'Add Property',
+                    icon: Icons.add,
+                    onPressed: onAdd,
+                  ),
+                ],
+              );
+              if (isMobile) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      AppStrings.properties,
-                      style: TextStyle(
-                        fontSize: AppDimensions.fontH2,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      '${provider.companies.length} ${provider.companies.length == 1 ? 'portfolio' : 'portfolios'} · ${provider.totalUnits} units total',
-                      style: const TextStyle(
-                        fontSize: AppDimensions.fontBase,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
+                    title,
+                    const SizedBox(height: AppDimensions.spaceMD),
+                    buttons,
                   ],
-                ),
-                const Spacer(),
-                AppButton(
-                  label: 'Export CSV',
-                  icon: Icons.download_outlined,
-                  variant: AppButtonVariant.ghost,
-                  onPressed: onExport,
-                ),
-                const SizedBox(width: AppDimensions.spaceSM),
-                AppButton(
-                  label: 'Import File',
-                  icon: Icons.upload_file_outlined,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: onImport,
-                ),
-                const SizedBox(width: AppDimensions.spaceSM),
-                AppButton(
-                  label: 'Add Property',
-                  icon: Icons.add,
-                  onPressed: onAdd,
-                ),
-              ],
-            ),
+                );
+              }
+              return Row(children: [title, const Spacer(), buttons]);
+            }),
             const SizedBox(height: AppDimensions.spaceXL),
 
             // ── Portfolio KPI strip ──
@@ -891,44 +904,58 @@ class _UnitsView extends StatelessWidget {
             const SizedBox(height: AppDimensions.spaceMD),
 
             // ── Header ──
-            Row(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            Builder(builder: (context) {
+              final title = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    provider.selectedCompany ?? '',
+                    style: const TextStyle(
+                      fontSize: AppDimensions.fontH2,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (summary != null)
                     Text(
-                      provider.selectedCompany ?? '',
+                      '${summary.totalUnits} units · ${fmt.format(summary.totalMonthlyRent)}/mo',
                       style: const TextStyle(
-                        fontSize: AppDimensions.fontH2,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        fontSize: AppDimensions.fontBase,
+                        color: AppColors.textMuted,
                       ),
                     ),
-                    if (summary != null)
-                      Text(
-                        '${summary.totalUnits} units · ${fmt.format(summary.totalMonthlyRent)}/mo',
-                        style: const TextStyle(
-                          fontSize: AppDimensions.fontBase,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
+                ],
+              );
+              final buttons = Wrap(
+                spacing: AppDimensions.spaceSM,
+                runSpacing: AppDimensions.spaceSM,
+                children: [
+                  AppButton(
+                    label: 'Import File',
+                    icon: Icons.upload_file_outlined,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onImport,
+                  ),
+                  AppButton(
+                    label: AppStrings.addProperty,
+                    icon: Icons.add,
+                    onPressed: onAdd,
+                  ),
+                ],
+              );
+              if (isMobile) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    title,
+                    const SizedBox(height: AppDimensions.spaceMD),
+                    buttons,
                   ],
-                ),
-                const Spacer(),
-                AppButton(
-                  label: 'Import File',
-                  icon: Icons.upload_file_outlined,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: onImport,
-                ),
-                const SizedBox(width: AppDimensions.spaceSM),
-                AppButton(
-                  label: AppStrings.addProperty,
-                  icon: Icons.add,
-                  onPressed: onAdd,
-                ),
-              ],
-            ),
+                );
+              }
+              return Row(children: [title, const Spacer(), buttons]);
+            }),
             const SizedBox(height: AppDimensions.spaceLG),
 
             // ── KPI row ──
@@ -1058,58 +1085,65 @@ class _FilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Wrap(
-          spacing: AppDimensions.spaceSM,
-          children: List.generate(statusFilters.length, (i) {
-            final filterValue = statusFilters[i].$1;
-            final filterLabel = statusFilters[i].$2;
-            final active = provider.statusFilter == filterValue;
-            return GestureDetector(
-              onTap: () => provider.setStatusFilter(filterValue),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimensions.spaceMD,
-                    vertical: AppDimensions.spaceXS),
-                decoration: BoxDecoration(
-                  color: active ? AppColors.accentSilver : AppColors.cardBg,
-                  border: Border.all(
-                      color: active ? AppColors.accentSilver : AppColors.border),
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
-                ),
-                child: Text(
-                  filterLabel,
-                  style: TextStyle(
-                    fontSize: AppDimensions.fontBase,
-                    fontWeight: FontWeight.w500,
-                    color: active ? AppColors.bgOuter : AppColors.textSecondary,
-                  ),
-                ),
+    final isMobile = Responsive.isMobile(context);
+
+    final chips = Wrap(
+      spacing: AppDimensions.spaceSM,
+      runSpacing: AppDimensions.spaceSM,
+      children: List.generate(statusFilters.length, (i) {
+        final filterValue = statusFilters[i].$1;
+        final filterLabel = statusFilters[i].$2;
+        final active = provider.statusFilter == filterValue;
+        return GestureDetector(
+          onTap: () => provider.setStatusFilter(filterValue),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.spaceMD,
+                vertical: AppDimensions.spaceXS),
+            decoration: BoxDecoration(
+              color: active ? AppColors.accentSilver : AppColors.cardBg,
+              border: Border.all(
+                  color: active ? AppColors.accentSilver : AppColors.border),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
+            ),
+            child: Text(
+              filterLabel,
+              style: TextStyle(
+                fontSize: AppDimensions.fontBase,
+                fontWeight: FontWeight.w500,
+                color: active ? AppColors.bgOuter : AppColors.textSecondary,
               ),
-            );
-          }),
-        ),
-        const Spacer(),
-        SizedBox(
-          width: 240,
-          height: 38,
-          child: TextField(
-            controller: searchController,
-            onChanged: provider.setSearchQuery,
-            style: const TextStyle(
-                fontSize: AppDimensions.fontBase, color: AppColors.textPrimary),
-            decoration: const InputDecoration(
-              hintText: AppStrings.searchProperties,
-              prefixIcon: Icon(Icons.search_rounded,
-                  color: AppColors.textMuted, size: AppDimensions.iconMD),
-              contentPadding: EdgeInsets.symmetric(vertical: 0),
             ),
           ),
-        ),
-      ],
+        );
+      }),
     );
+
+    final search = SizedBox(
+      width: isMobile ? double.infinity : 240,
+      height: 38,
+      child: TextField(
+        controller: searchController,
+        onChanged: provider.setSearchQuery,
+        style: const TextStyle(
+            fontSize: AppDimensions.fontBase, color: AppColors.textPrimary),
+        decoration: const InputDecoration(
+          hintText: AppStrings.searchProperties,
+          prefixIcon: Icon(Icons.search_rounded,
+              color: AppColors.textMuted, size: AppDimensions.iconMD),
+          contentPadding: EdgeInsets.symmetric(vertical: 0),
+        ),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [chips, const SizedBox(height: AppDimensions.spaceSM), search],
+      );
+    }
+    return Row(children: [Expanded(child: chips), const SizedBox(width: AppDimensions.spaceMD), search]);
   }
 }
 
@@ -1160,7 +1194,7 @@ class _UnitTable extends StatelessWidget {
                 _TH(label: 'Total Sq.ft', flex: 2),
                 _TH(label: 'Monthly Rent', flex: 3),
                 _TH(label: 'Status', flex: 2),
-                _TH(label: '', flex: 1),
+                _TH(label: '', flex: 5),
               ],
             ),
           ),
@@ -1301,28 +1335,30 @@ class _UnitRowState extends State<_UnitRow> {
               ),
               Expanded(flex: 2, child: _StatusBadge(status: u.status)),
               Expanded(
-                flex: 1,
+                // 5 action icons need ~180px minimum — flex 1 (out of ~18)
+                // wasn't enough and pushed delete off the right edge.
+                flex: 5,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (u.status == 'vacant')
-                      Tooltip(
-                        message: 'Publish to platforms',
-                        child: _ActionBtn(
-                          icon: Icons.language_outlined,
-                          color: AppColors.accentGold,
-                          onTap: () => widget.onPublish(u),
-                        ),
+                    Tooltip(
+                      message: 'Publish to platforms',
+                      child: _ActionBtn(
+                        icon: Icons.language_outlined,
+                        color: AppColors.accentGold,
+                        enabled: u.status == 'vacant',
+                        onTap: () => widget.onPublish(u),
                       ),
-                    if (u.status == 'occupied' || u.status == 'in_house')
-                      Tooltip(
-                        message: 'Generate Invoice',
-                        child: _ActionBtn(
-                          icon: Icons.receipt_long_outlined,
-                          color: AppColors.accentGold,
-                          onTap: () => widget.onGenerateInvoice(u),
-                        ),
+                    ),
+                    Tooltip(
+                      message: 'Generate Invoice',
+                      child: _ActionBtn(
+                        icon: Icons.receipt_long_outlined,
+                        color: AppColors.accentGold,
+                        enabled: u.status == 'occupied' || u.status == 'in_house',
+                        onTap: () => widget.onGenerateInvoice(u),
                       ),
+                    ),
                     Tooltip(
                       message: 'Agreement Details',
                       child: _ActionBtn(
@@ -1331,7 +1367,10 @@ class _UnitRowState extends State<_UnitRow> {
                         onTap: () => widget.onViewAgreement(u),
                       ),
                     ),
-                    _ActionBtn(icon: Icons.edit_outlined, onTap: () => widget.onEdit(u)),
+                    _ActionBtn(
+                        icon: Icons.edit_outlined,
+                        color: Colors.white,
+                        onTap: () => widget.onEdit(u)),
                     _ActionBtn(
                         icon: Icons.delete_outline,
                         color: AppColors.error,
@@ -1348,22 +1387,30 @@ class _UnitRowState extends State<_UnitRow> {
 }
 
 class _ActionBtn extends StatelessWidget {
-  const _ActionBtn({required this.icon, required this.onTap, this.color});
+  const _ActionBtn({
+    required this.icon,
+    required this.onTap,
+    this.color,
+    this.enabled = true,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
   final Color? color;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Padding(
         padding: const EdgeInsets.all(AppDimensions.spaceSM),
         child: Icon(icon,
             size: AppDimensions.iconMD,
-            color: color ?? AppColors.textMuted),
+            color: enabled
+                ? (color ?? AppColors.textMuted)
+                : AppColors.textMuted),
       ),
     );
   }
@@ -1400,63 +1447,88 @@ class _UnitCardList extends StatelessWidget {
             border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
                 horizontal: AppDimensions.spaceMD,
-                vertical: AppDimensions.spaceXS),
-            title: Text(u.name,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                    fontSize: AppDimensions.fontBase)),
-            subtitle: Text('${u.category}  •  ${u.floor}',
-                style: const TextStyle(
-                    fontSize: AppDimensions.fontSM,
-                    color: AppColors.textMuted)),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
+                vertical: AppDimensions.spaceSM),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  u.totalRent > 0 ? fmt.format(u.totalRent) : '—',
-                  style: const TextStyle(
-                      color: AppColors.accentGold,
-                      fontWeight: FontWeight.w700,
-                      fontSize: AppDimensions.fontBase),
-                ),
-                const SizedBox(height: 4),
+                // ── Name + rent ──────────────────────────────────
                 Row(
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (u.status == 'vacant') ...[
-                      GestureDetector(
-                        onTap: () => onPublish(u),
-                        child: const Icon(Icons.language_outlined,
-                            size: 16, color: AppColors.accentGold),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    if (u.status == 'occupied' || u.status == 'in_house') ...[
-                      GestureDetector(
-                        onTap: () => onGenerateInvoice(u),
-                        child: const Icon(Icons.receipt_long_outlined,
-                            size: 16, color: AppColors.accentGold),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    GestureDetector(
-                      onTap: () => onViewAgreement(u),
-                      child: const Icon(Icons.info_outline_rounded,
-                          size: 16, color: AppColors.info),
+                    Expanded(
+                      child: Text(u.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                              fontSize: AppDimensions.fontBase)),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppDimensions.spaceSM),
+                    Text(
+                      u.totalRent > 0 ? fmt.format(u.totalRent) : '—',
+                      style: const TextStyle(
+                          color: AppColors.accentGold,
+                          fontWeight: FontWeight.w700,
+                          fontSize: AppDimensions.fontBase),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                // ── Category/floor + status ──────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('${u.category}  •  ${u.floor}',
+                          style: const TextStyle(
+                              fontSize: AppDimensions.fontSM,
+                              color: AppColors.textMuted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: AppDimensions.spaceSM),
                     _StatusBadge(status: u.status),
+                  ],
+                ),
+                const SizedBox(height: AppDimensions.spaceSM),
+                const Divider(height: 1, color: AppColors.border),
+                const SizedBox(height: AppDimensions.spaceXS),
+                // ── Actions row — below name/description ─────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _ActionBtn(
+                      icon: Icons.language_outlined,
+                      color: AppColors.accentGold,
+                      enabled: u.status == 'vacant',
+                      onTap: () => onPublish(u),
+                    ),
+                    _ActionBtn(
+                      icon: Icons.receipt_long_outlined,
+                      color: AppColors.accentGold,
+                      enabled: u.status == 'occupied' || u.status == 'in_house',
+                      onTap: () => onGenerateInvoice(u),
+                    ),
+                    _ActionBtn(
+                      icon: Icons.info_outline_rounded,
+                      color: AppColors.info,
+                      onTap: () => onViewAgreement(u),
+                    ),
+                    _ActionBtn(
+                      icon: Icons.edit_outlined,
+                      color: Colors.white,
+                      onTap: () => onEdit(u),
+                    ),
+                    _ActionBtn(
+                      icon: Icons.delete_outline,
+                      color: AppColors.error,
+                      onTap: () => onDelete(u),
+                    ),
                   ],
                 ),
               ],
             ),
-            onTap: () => onEdit(u),
-            onLongPress: () => onDelete(u),
           ),
         );
       }).toList(),

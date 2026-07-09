@@ -7,6 +7,7 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../properties/presentation/widgets/unit_agreement_dialog.dart';
 import '../../domain/entities/tenant.dart';
 import '../providers/tenants_provider.dart';
 
@@ -224,9 +225,13 @@ class _DesktopLayout extends StatelessWidget {
         // Right column
         Expanded(
           flex: 7,
-          child: lease != null
-              ? _LeaseCard(lease: lease!)
-              : const _NoLeaseCard(),
+          child: Column(
+            children: [
+              lease != null ? _LeaseCard(lease: lease!) : const _NoLeaseCard(),
+              const SizedBox(height: AppDimensions.spaceMD),
+              _AgreementCard(tenant: tenant),
+            ],
+          ),
         ),
       ],
     );
@@ -244,6 +249,8 @@ class _MobileLayout extends StatelessWidget {
     return Column(
       children: [
         if (lease != null) _LeaseCard(lease: lease!),
+        const SizedBox(height: AppDimensions.spaceMD),
+        _AgreementCard(tenant: tenant),
         const SizedBox(height: AppDimensions.spaceMD),
         _ContactCard(tenant: tenant),
         if (tenant.emergencyContactName != null) ...[
@@ -385,6 +392,67 @@ class _NoLeaseCard extends StatelessWidget {
           ),
           const SizedBox(height: AppDimensions.spaceLG),
           AppButton(label: 'Add Lease', icon: Icons.add, onPressed: () {}),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Rental agreement (AI-extracted from the uploaded PDF/image) ────────
+
+class _AgreementCard extends StatelessWidget {
+  const _AgreementCard({required this.tenant});
+
+  final Tenant tenant;
+
+  @override
+  Widget build(BuildContext context) {
+    final unitId = tenant.unitId;
+    final hasUnit = unitId != null && unitId.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceMD),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.description_outlined,
+              size: AppDimensions.iconMD, color: AppColors.accentGreen),
+          const SizedBox(width: AppDimensions.spaceSM),
+          const Expanded(
+            child: Text(
+              'Rental Agreement',
+              style: TextStyle(
+                fontSize: AppDimensions.fontMD,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          if (hasUnit)
+            AppButton(
+              label: 'View / Upload',
+              icon: Icons.description_outlined,
+              variant: AppButtonVariant.secondary,
+              small: true,
+              onPressed: () => UnitAgreementDialog.show(
+                context,
+                unitId: unitId,
+                unitName: (tenant.companyName?.isNotEmpty ?? false)
+                    ? tenant.companyName!
+                    : tenant.fullName,
+              ),
+            )
+          else
+            const Text(
+              'No property assigned',
+              style: TextStyle(
+                fontSize: AppDimensions.fontSM,
+                color: AppColors.textMuted,
+              ),
+            ),
         ],
       ),
     );

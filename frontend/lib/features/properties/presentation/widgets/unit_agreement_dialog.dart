@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
@@ -80,6 +81,8 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
     }
   }
 
+  static const _maxBytes = 100 * 1024 * 1024; // 100 MB
+
   Future<void> _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -91,19 +94,58 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
     final bytes = file.bytes;
     if (bytes == null) return;
 
-    setState(() { _uploading = true; _uploadStatus = 'Uploading & extracting fields…'; });
+    if (bytes.lengthInBytes > _maxBytes) {
+      setState(() => _error = 'File too large (max 100 MB).');
+      return;
+    }
+
+    final contentType = _dioContentType(file.extension ?? 'pdf');
+    final contentTypeStr = '${contentType.type}/${contentType.subtype}';
+
+    setState(() { _uploading = true; _uploadStatus = 'Requesting upload URL…'; });
 
     try {
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(
-          bytes,
-          filename: file.name,
-          contentType: _dioContentType(file.extension ?? 'pdf'),
+      // Step 1: ask the backend for a signed GCS upload URL. Uploading
+      // straight to Cloud Run would be capped at its ~32MB inbound request
+      // limit — this bypasses that entirely for the file transfer itself.
+      final urlRes = await ApiClient.properties.post(
+        '/api/v1/leasing/${widget.unitId}/agreement/upload-url',
+        data: {'filename': file.name, 'content_type': contentTypeStr},
+      );
+      final uploadUrl = urlRes.data['upload_url'] as String;
+      final storagePath = urlRes.data['storage_path'] as String;
+      final orgId = urlRes.data['org_id'] as String;
+
+      // Step 2: PUT the raw bytes directly to GCS.
+      setState(() => _uploadStatus = 'Uploading file…');
+      await Dio().put(
+        uploadUrl,
+        data: Stream.fromIterable([bytes]),
+        options: Options(
+          headers: {
+            Headers.contentTypeHeader: contentTypeStr,
+            Headers.contentLengthHeader: bytes.lengthInBytes,
+          },
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
         ),
-      });
+      );
+
+      // Step 3: backend downloads it from GCS (outbound call, not subject
+      // to the inbound limit) and runs Claude extraction.
+      setState(() => _uploadStatus = 'Extracting fields…');
       final res = await ApiClient.properties.post(
-        '/api/v1/leasing/${widget.unitId}/agreement',
-        data: formData,
+        '/api/v1/leasing/${widget.unitId}/agreement/from-storage',
+        data: {
+          'storage_path': storagePath,
+          'filename': file.name,
+          'content_type': contentTypeStr,
+          'org_id': orgId,
+        },
+        options: Options(
+          sendTimeout: const Duration(minutes: 3),
+          receiveTimeout: const Duration(minutes: 3),
+        ),
       );
       setState(() {
         _agreement = UnitAgreement.fromJson(res.data as Map<String, dynamic>);
@@ -114,7 +156,7 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
       setState(() {
         _uploading = false;
         _uploadStatus = null;
-        _error = e.response?.data?['detail'] ?? 'Upload failed.';
+        _error = (e.response?.data is Map ? e.response?.data['detail'] : null) ?? 'Upload failed.';
       });
     }
   }
@@ -350,10 +392,12 @@ class _AgreementFields extends StatelessWidget {
           _Section(
             title: 'Parties',
             rows: [
-              _row('Tenant', a.tenantName),
-              _row('Tenant GSTIN', a.tenantGstin),
-              _row('Owner', a.ownerName),
+              _row('Lessor / Owner', a.ownerName),
+              _row('Owner Address', a.ownerAddress),
               _row('Owner GSTIN', a.ownerGstin),
+              _row('Lessee / Tenant', a.tenantName),
+              _row('Tenant Address', a.tenantAddress),
+              _row('Tenant GSTIN', a.tenantGstin),
             ],
           ),
           const SizedBox(height: AppDimensions.spaceLG),
@@ -367,11 +411,22 @@ class _AgreementFields extends StatelessWidget {
           ),
           const SizedBox(height: AppDimensions.spaceLG),
           _Section(
+            title: 'Space & Amenities',
+            rows: [
+              _row('Furnishing', a.furnishingLabel.isNotEmpty ? a.furnishingLabel : null),
+              _row('Car Parking', a.carParkingCount != null ? '${a.carParkingCount} space${a.carParkingCount == 1 ? '' : 's'}' : null),
+              if (a.amenities.isNotEmpty) _row('Other Amenities', a.amenities.join(', ')),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.spaceLG),
+          _Section(
             title: 'Financials',
             rows: [
               _row('Monthly Rent', a.monthlyRent != null ? numFmt.format(a.monthlyRent) : null),
               _row('Monthly Maintenance', a.monthlyMaintenance != null ? numFmt.format(a.monthlyMaintenance) : null),
+              _row('Maintenance Paid By', a.maintenancePaidByLabel.isNotEmpty ? a.maintenancePaidByLabel : null),
               _row('Security Deposit', a.securityDeposit != null ? numFmt.format(a.securityDeposit) : null),
+              _row('Profit Sharing', a.profitSharing),
               _row('Payment Due Day', a.paymentDueDay != null ? '${a.paymentDueDay}${_ordinal(a.paymentDueDay!)} of each month' : null),
               if (a.isGstApplicable) ...[
                 _row('CGST', a.cgstRate != null ? '${a.cgstRate}%' : null),
@@ -389,6 +444,24 @@ class _AgreementFields extends StatelessWidget {
               _row('Agreement Date', a.documentDate != null ? dateFmt.format(a.documentDate!) : null),
             ],
           ),
+          if (a.fileUrl != null) ...[
+            const SizedBox(height: AppDimensions.spaceLG),
+            InkWell(
+              onTap: () => launchUrlString(a.fileUrl!),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.open_in_new, size: 14, color: AppColors.accentGold),
+                  SizedBox(width: 6),
+                  Text('View original document',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.accentGold)),
+                ],
+              ),
+            ),
+          ],
           if (a.specialClauses.isNotEmpty) ...[
             const SizedBox(height: AppDimensions.spaceLG),
             _Section(
@@ -446,13 +519,16 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleRows = rows.where((r) => r['value'] != null).toList();
+    // Show every row's label even when the document didn't have that field —
+    // a blank value with a visible label makes it clear what wasn't found,
+    // instead of silently hiding fields the agreement simply didn't mention.
+    final visibleRows = rows;
     if (visibleRows.isEmpty && child == null) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title.toUpperCase(),
+        Text(title,
             style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -473,6 +549,7 @@ class _Section extends StatelessWidget {
               : Column(
                   children: visibleRows.asMap().entries.map((e) {
                     final isLast = e.key == visibleRows.length - 1;
+                    final value = e.value['value'];
                     return Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: AppDimensions.spaceMD,
@@ -492,11 +569,11 @@ class _Section extends StatelessWidget {
                                     color: AppColors.textMuted)),
                           ),
                           Expanded(
-                            child: Text(e.value['value']!,
-                                style: const TextStyle(
+                            child: Text(value ?? '—',
+                                style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary)),
+                                    fontWeight: value != null ? FontWeight.w600 : FontWeight.w400,
+                                    color: value != null ? AppColors.textPrimary : AppColors.textMuted)),
                           ),
                         ],
                       ),
