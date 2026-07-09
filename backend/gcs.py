@@ -13,6 +13,10 @@ property's folder browsable instead of one flat dump.
 
 The bucket is private (lease/tenant documents are PII) — reads go through
 short-lived v4 signed URLs rather than public object URLs.
+
+GCS_PUBLIC_BUCKET is a separate, publicly-readable bucket for property/unit
+photos — those aren't sensitive, and stable public URLs avoid re-signing on
+every page load (see get_public_bucket / upload_public_bytes).
 """
 
 from __future__ import annotations
@@ -29,6 +33,7 @@ _SIGNED_URL_TTL = datetime.timedelta(hours=1)
 
 _client: storage.Client | None = None
 _bucket: storage.Bucket | None = None
+_public_bucket: storage.Bucket | None = None
 _signing_credentials = None
 
 
@@ -44,6 +49,17 @@ def get_bucket() -> storage.Bucket:
         _client = storage.Client()
         _bucket = _client.bucket(os.environ["GCS_BUCKET"])
     return _bucket
+
+
+def get_public_bucket() -> storage.Bucket:
+    """The publicly-readable bucket for property/unit photos (GCS_PUBLIC_BUCKET) —
+    separate from the private GCS_BUCKET used for lease documents/PII."""
+    global _client, _public_bucket
+    if _public_bucket is None:
+        if _client is None:
+            _client = storage.Client()
+        _public_bucket = _client.bucket(os.environ["GCS_PUBLIC_BUCKET"])
+    return _public_bucket
 
 
 def _signing_email_and_token() -> tuple[str, str]:
@@ -132,3 +148,27 @@ def upload_bytes(
     blob = get_bucket().blob(object_path)
     blob.upload_from_string(data, content_type=content_type)
     return object_path, signed_url(object_path)
+
+
+def upload_public_bytes(
+    *,
+    org_id: str,
+    category: str,
+    filename: str,
+    data: bytes,
+    content_type: str,
+    property_id: str | None = None,
+) -> tuple[str, str]:
+    """Upload bytes to the public bucket and return (object_path, public_url).
+    No signing needed — GCS_PUBLIC_BUCKET grants allUsers read at the bucket
+    level, so the URL is stable and never expires."""
+    object_path = build_object_path(
+        org_id=org_id, category=category, filename=filename, property_id=property_id
+    )
+    blob = get_public_bucket().blob(object_path)
+    blob.upload_from_string(data, content_type=content_type)
+    return object_path, blob.public_url
+
+
+def delete_public_object(object_path: str) -> None:
+    get_public_bucket().blob(object_path).delete()

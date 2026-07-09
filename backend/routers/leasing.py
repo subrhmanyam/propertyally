@@ -117,6 +117,94 @@ async def delete_unit(unit_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Photos — property/space images (public bucket, stable URLs)
+# ---------------------------------------------------------------------------
+
+_ALLOWED_IMAGE_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_PHOTO_MAX_BYTES = 10 * 1024 * 1024  # 10 MB per photo
+
+
+class PhotoDeleteIn(BaseModel):
+    photo_url: str
+
+
+@router.post("/{unit_id}/photos", status_code=201)
+async def upload_photo(unit_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+    """Upload one photo for a unit — appends to leasing_units.photos.
+    Call once per file; the frontend loops for multi-select."""
+    import gcs
+
+    media_type = file.content_type or _MIME_FROM_EXT.get(
+        (file.filename or "").rsplit(".", 1)[-1].lower(), ""
+    )
+    if media_type not in _ALLOWED_IMAGE_MIME:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported image type '{media_type}'. Upload JPEG, PNG, WEBP, or GIF.",
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) > _PHOTO_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Photo too large (max 10 MB).")
+
+    sb = get_supabase()
+    unit_res = (
+        sb.table("leasing_units")
+        .select("org_id, photos")
+        .eq("id", unit_id)
+        .single()
+        .execute()
+    )
+    if not unit_res.data:
+        raise HTTPException(status_code=404, detail="Property not found.")
+    org_id = unit_res.data.get("org_id")
+    if not org_id:
+        raise HTTPException(
+            status_code=400,
+            detail="This property has no organization set — cannot upload photos.",
+        )
+
+    _, public_url = gcs.upload_public_bytes(
+        org_id=org_id,
+        category="photos",
+        filename=file.filename or "photo",
+        data=file_bytes,
+        content_type=media_type,
+        property_id=unit_id,
+    )
+
+    photos = list(unit_res.data.get("photos") or []) + [public_url]
+    sb.table("leasing_units").update({"photos": photos}).eq("id", unit_id).execute()
+    return {"photos": photos}
+
+
+@router.delete("/{unit_id}/photos")
+async def delete_photo(unit_id: str, payload: PhotoDeleteIn) -> dict[str, Any]:
+    """Remove one photo URL from leasing_units.photos (and best-effort delete
+    the GCS object — a failure there shouldn't block removing it from the list)."""
+    import gcs
+
+    sb = get_supabase()
+    unit_res = (
+        sb.table("leasing_units").select("photos").eq("id", unit_id).single().execute()
+    )
+    if not unit_res.data:
+        raise HTTPException(status_code=404, detail="Property not found.")
+
+    photos = [p for p in (unit_res.data.get("photos") or []) if p != payload.photo_url]
+    sb.table("leasing_units").update({"photos": photos}).eq("id", unit_id).execute()
+
+    try:
+        prefix = f"https://storage.googleapis.com/{gcs.get_public_bucket().name}/"
+        if payload.photo_url.startswith(prefix):
+            gcs.delete_public_object(payload.photo_url.removeprefix(prefix))
+    except Exception:
+        logger.warning('Could not delete GCS object for photo "%s"', payload.photo_url, exc_info=True)
+
+    return {"photos": photos}
+
+
+# ---------------------------------------------------------------------------
 # Agreement document — upload, extract, and retrieve
 # ---------------------------------------------------------------------------
 
