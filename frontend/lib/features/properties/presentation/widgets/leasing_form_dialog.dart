@@ -1,9 +1,12 @@
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../domain/entities/leasing_unit.dart';
@@ -21,11 +24,13 @@ class LeasingUnitDraft {
         contact = unit?.contact ?? '',
         email = unit?.email ?? '',
         notes = unit?.notes ?? '',
+        photos = List<String>.from(unit?.photos ?? const []),
         areas = unit?.areas.map((a) => AreaEntryDraft.from(a)).toList() ??
             [AreaEntryDraft()];
 
   String name, companyName, category, floor, status, contact, email, notes;
   List<AreaEntryDraft> areas;
+  List<String> photos;
 }
 
 class AreaEntryDraft {
@@ -123,6 +128,7 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
   final _notesController = TextEditingController();
   final _customCategoryController = TextEditingController();
   final _fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -169,6 +175,60 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
     });
   }
 
+  Future<void> _pickAndUploadPhotos() async {
+    final unitId = widget.unit?.id;
+    if (unitId == null) return;
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: true,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty || !mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    for (final file in result.files) {
+      final bytes = file.bytes;
+      if (bytes == null) continue;
+      try {
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(bytes, filename: file.name),
+        });
+        final res = await ApiClient.properties.post(
+          '/api/v1/leasing/$unitId/photos',
+          data: formData,
+        );
+        final photos = (res.data['photos'] as List?)?.map((e) => e.toString()).toList();
+        if (photos != null && mounted) {
+          setState(() => _draft.photos = photos);
+        }
+      } on DioException catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not upload "${file.name}": '
+              '${(e.response?.data is Map ? e.response?.data['detail'] : null) ?? e.message}'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
+    if (mounted) setState(() => _uploadingPhoto = false);
+  }
+
+  Future<void> _deletePhoto(String photoUrl) async {
+    final unitId = widget.unit?.id;
+    if (unitId == null) return;
+    setState(() => _draft.photos.remove(photoUrl));
+    try {
+      await ApiClient.properties.delete(
+        '/api/v1/leasing/$unitId/photos',
+        data: {'photo_url': photoUrl},
+      );
+    } on DioException catch (_) {
+      // Best-effort — the photo stays removed from this form's view even if
+      // the backend delete failed; retrying is just re-uploading, not worse.
+    }
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -199,6 +259,7 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      photos: _draft.photos,
     );
     Navigator.of(context).pop(result);
   }
@@ -431,6 +492,29 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
                       controller: _notesController,
                       maxLines: 2,
                     ),
+
+                    // Photos — only once the property exists, since photo
+                    // uploads are keyed by its real (server-assigned) id.
+                    if (widget.unit != null) ...[
+                      const SizedBox(height: AppDimensions.spaceLG),
+                      _SectionLabel('Photos'),
+                      const SizedBox(height: AppDimensions.spaceSM),
+                      _PhotoGrid(
+                        photos: _draft.photos,
+                        uploading: _uploadingPhoto,
+                        onAdd: _pickAndUploadPhotos,
+                        onDelete: _deletePhoto,
+                      ),
+                    ] else ...[
+                      const SizedBox(height: AppDimensions.spaceLG),
+                      Text(
+                        'Save the property first, then reopen it to add photos.',
+                        style: const TextStyle(
+                            fontSize: AppDimensions.fontSM,
+                            color: AppColors.textMuted,
+                            fontStyle: FontStyle.italic),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -557,6 +641,119 @@ class _AreaEntryRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Photo grid ───────────────────────────────────────────────────────
+
+class _PhotoGrid extends StatelessWidget {
+  const _PhotoGrid({
+    required this.photos,
+    required this.uploading,
+    required this.onAdd,
+    required this.onDelete,
+  });
+
+  final List<String> photos;
+  final bool uploading;
+  final VoidCallback onAdd;
+  final ValueChanged<String> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppDimensions.spaceSM,
+      runSpacing: AppDimensions.spaceSM,
+      children: [
+        for (final url in photos)
+          _PhotoThumb(url: url, onDelete: () => onDelete(url)),
+        _AddPhotoTile(uploading: uploading, onTap: uploading ? null : onAdd),
+      ],
+    );
+  }
+}
+
+class _PhotoThumb extends StatelessWidget {
+  const _PhotoThumb({required this.url, required this.onDelete});
+
+  final String url;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
+            child: Image.network(
+              url,
+              width: 88,
+              height: 88,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 88,
+                height: 88,
+                color: AppColors.pageBg,
+                child: const Icon(Icons.broken_image_outlined,
+                    color: AppColors.textMuted),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: onDelete,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: AppColors.bgOuter,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close,
+                    size: 14, color: AppColors.error),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddPhotoTile extends StatelessWidget {
+  const _AddPhotoTile({required this.uploading, required this.onTap});
+
+  final bool uploading;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 88,
+        height: 88,
+        decoration: BoxDecoration(
+          color: AppColors.pageBg,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
+        ),
+        child: uploading
+            ? const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : const Icon(Icons.add_photo_alternate_outlined,
+                color: AppColors.textMuted, size: AppDimensions.iconLG),
       ),
     );
   }
