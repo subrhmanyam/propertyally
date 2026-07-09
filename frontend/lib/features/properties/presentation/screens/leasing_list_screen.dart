@@ -1287,13 +1287,21 @@ class _UnitRowState extends State<_UnitRow> {
             children: [
               Expanded(
                 flex: 4,
-                child: Text(u.name,
-                    style: const TextStyle(
-                        fontSize: AppDimensions.fontBase,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                child: Row(
+                  children: [
+                    _UnitThumb(photos: u.photos),
+                    const SizedBox(width: AppDimensions.spaceSM),
+                    Expanded(
+                      child: Text(u.name,
+                          style: const TextStyle(
+                              fontSize: AppDimensions.fontBase,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 flex: 3,
@@ -1458,6 +1466,8 @@ class _UnitCardList extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _UnitThumb(photos: u.photos),
+                    const SizedBox(width: AppDimensions.spaceSM),
                     Expanded(
                       child: Text(u.name,
                           style: const TextStyle(
@@ -1537,6 +1547,40 @@ class _UnitCardList extends StatelessWidget {
 }
 
 // ── Shared sub-widgets ────────────────────────────────────────────────
+
+class _UnitThumb extends StatelessWidget {
+  const _UnitThumb({required this.photos});
+
+  final List<String> photos;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
+      child: photos.isEmpty
+          ? Container(
+              width: 32,
+              height: 32,
+              color: AppColors.pageBg,
+              child: const Icon(Icons.home_work_outlined,
+                  size: 16, color: AppColors.textMuted),
+            )
+          : Image.network(
+              photos.first,
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 32,
+                height: 32,
+                color: AppColors.pageBg,
+                child: const Icon(Icons.broken_image_outlined,
+                    size: 16, color: AppColors.textMuted),
+              ),
+            ),
+    );
+  }
+}
 
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
