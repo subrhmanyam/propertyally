@@ -50,6 +50,7 @@ class LeasingUnit {
     this.contact,
     this.email,
     this.notes,
+    this.photos = const [],
   });
 
   final String id;
@@ -69,6 +70,10 @@ class LeasingUnit {
   final String? contact;
   final String? email;
   final String? notes;
+
+  /// Public GCS URLs — managed via the dedicated /photos endpoints, not
+  /// through the regular create/update form save (see toJson).
+  final List<String> photos;
 
   double get totalRent => areas.fold(0.0, (s, a) => s + a.rent);
   double get totalSqft => areas.fold(0.0, (s, a) => s + a.sqft);
@@ -91,6 +96,7 @@ class LeasingUnit {
     String? contact,
     String? email,
     String? notes,
+    List<String>? photos,
   }) =>
       LeasingUnit(
         id: id,
@@ -103,6 +109,7 @@ class LeasingUnit {
         contact: contact ?? this.contact,
         email: email ?? this.email,
         notes: notes ?? this.notes,
+        photos: photos ?? this.photos,
       );
 
   factory LeasingUnit.fromJson(Map<String, dynamic> json) => LeasingUnit(
@@ -117,6 +124,9 @@ class LeasingUnit {
         notes: json['notes']?.toString(),
         areas: (json['area_entries'] as List<dynamic>? ?? [])
             .map((e) => AreaEntry.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        photos: (json['photos'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
             .toList(),
       );
 
