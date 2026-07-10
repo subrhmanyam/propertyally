@@ -1,15 +1,20 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/export_helper.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../properties/domain/entities/leasing_unit.dart';
+import '../../../properties/domain/entities/unit_agreement.dart';
 import '../../../properties/presentation/providers/leasing_provider.dart';
 import '../../../properties/presentation/widgets/leasing_form_dialog.dart';
 import '../../domain/entities/tenant.dart';
@@ -45,11 +50,28 @@ class _TenantListScreenState extends State<TenantListScreen> {
       return;
     }
     final csv = buildCsv(
-      ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Status', 'Unit ID', 'Move-in Date'],
-      tenants.map((t) => [
-        t.id, t.firstName, t.lastName, t.email, t.phone,
-        t.status, t.unitId ?? '', t.moveInDate?.toIso8601String() ?? '',
-      ]).toList(),
+      [
+        'ID',
+        'First Name',
+        'Last Name',
+        'Email',
+        'Phone',
+        'Status',
+        'Unit ID',
+        'Move-in Date'
+      ],
+      tenants
+          .map((t) => [
+                t.id,
+                t.firstName,
+                t.lastName,
+                t.email,
+                t.phone,
+                t.status,
+                t.unitId ?? '',
+                t.moveInDate?.toIso8601String() ?? '',
+              ])
+          .toList(),
     );
     downloadCsv(csv, 'tenants_${DateTime.now().millisecondsSinceEpoch}.csv');
   }
@@ -92,8 +114,8 @@ class _TenantListScreenState extends State<TenantListScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.error)),
+            child:
+                const Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -132,8 +154,8 @@ class _TenantListScreenState extends State<TenantListScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.error)),
+            child:
+                const Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -146,7 +168,8 @@ class _TenantListScreenState extends State<TenantListScreen> {
     }
   }
 
-  Future<void> _openAssignProperty(Tenant tenant, List<LeasingUnit> units) async {
+  Future<void> _openAssignProperty(
+      Tenant tenant, List<LeasingUnit> units) async {
     if (units.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add a property first.')),
@@ -203,10 +226,9 @@ class _TenantListScreenState extends State<TenantListScreen> {
       builder: (context, tp, lp, _) {
         // ── Level 2: tenants for selected property ─────────────────
         if (_selectedUnit != null) {
-          final unit = lp.units
-                  .where((u) => u.id == _selectedUnit!.id)
-                  .firstOrNull ??
-              _selectedUnit!;
+          final unit =
+              lp.units.where((u) => u.id == _selectedUnit!.id).firstOrNull ??
+                  _selectedUnit!;
           final unitTenants =
               tp.tenants.where((t) => t.unitId == unit.id).toList();
           return _PropertyTenantsView(
@@ -286,7 +308,9 @@ class _TenantListScreenState extends State<TenantListScreen> {
                   ],
                 ),
                 const SizedBox(height: AppDimensions.spaceLG),
-                if (!lp.isLoading && !tp.isLoading && unassignedTenants.isNotEmpty) ...[
+                if (!lp.isLoading &&
+                    !tp.isLoading &&
+                    unassignedTenants.isNotEmpty) ...[
                   _UnassignedBanner(
                     count: unassignedTenants.length,
                     onTap: () => setState(() => _showUnassigned = true),
@@ -340,7 +364,8 @@ class _UnassignedBanner extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: Container(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.spaceMD, vertical: AppDimensions.spaceSM),
+              horizontal: AppDimensions.spaceMD,
+              vertical: AppDimensions.spaceSM),
           decoration: BoxDecoration(
             color: AppColors.warning.withValues(alpha: 0.08),
             border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
@@ -431,8 +456,7 @@ class _PropertyTenantsView extends StatelessWidget {
                 ),
                 const SizedBox(width: AppDimensions.spaceSM),
                 const Text('/',
-                    style: TextStyle(
-                        color: AppColors.textMuted, fontSize: 18)),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 18)),
                 const SizedBox(width: AppDimensions.spaceSM),
                 Expanded(
                   child: Text(
@@ -473,8 +497,7 @@ class _PropertyTenantsView extends StatelessWidget {
                       child: const Padding(
                         padding: EdgeInsets.all(AppDimensions.spaceXS),
                         child: Icon(Icons.delete_outline,
-                            size: AppDimensions.iconMD,
-                            color: AppColors.error),
+                            size: AppDimensions.iconMD, color: AppColors.error),
                       ),
                     ),
                   ),
@@ -500,32 +523,283 @@ class _PropertyTenantsView extends StatelessWidget {
             ),
             const SizedBox(height: AppDimensions.spaceLG),
 
-            // ── Tenant content ──────────────────────────────────────
+            // ── The occupying business's own info, as its tenant record ──
+            // In this complex, the unit itself (e.g. "Pump House") usually
+            // *is* the tenant — formal Tenant rows below are additional
+            // named contacts, not a replacement for this.
+            _UnitTenantInfoCard(unit: unit),
+            const SizedBox(height: AppDimensions.spaceLG),
+
+            // ── Named contacts (formal Tenant records), if any ───────
             if (isLoading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.only(top: 60),
-                  child:
-                      CircularProgressIndicator(color: AppColors.accentGold),
+                  child: CircularProgressIndicator(color: AppColors.accentGold),
                 ),
               )
-            else if (tenants.isEmpty)
-              EmptyState(
-                icon: Icons.people_outline,
-                title: 'No Tenants Yet',
-                description: 'Add the first tenant for ${unit.name}.',
-                actionLabel: AppStrings.addTenant,
-                onAction: onAddTenant,
-              )
-            else
+            else if (tenants.isNotEmpty) ...[
+              const Text('Contacts',
+                  style: TextStyle(
+                      fontSize: AppDimensions.fontH3,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary)),
+              const SizedBox(height: AppDimensions.spaceSM),
               _TenantVCardGrid(
                 tenants: tenants,
                 onDelete: onDeleteTenant,
                 propertyName: unit.name,
               ),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── The unit's own fields, shown as its tenant record ───────────────
+// Combines the leasing_unit's own fields (always available) with the
+// AI-extracted rental agreement (fetched lazily — may not exist yet).
+
+class _UnitTenantInfoCard extends StatefulWidget {
+  const _UnitTenantInfoCard({required this.unit});
+
+  final LeasingUnit unit;
+
+  @override
+  State<_UnitTenantInfoCard> createState() => _UnitTenantInfoCardState();
+}
+
+class _UnitTenantInfoCardState extends State<_UnitTenantInfoCard> {
+  UnitAgreement? _agreement;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAgreement();
+  }
+
+  @override
+  void didUpdateWidget(covariant _UnitTenantInfoCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.unit.id != widget.unit.id) _fetchAgreement();
+  }
+
+  Future<void> _fetchAgreement() async {
+    setState(() {
+      _loading = true;
+      _agreement = null;
+    });
+    try {
+      final res = await ApiClient.properties
+          .get('/api/v1/leasing/${widget.unit.id}/agreement');
+      if (!mounted) return;
+      setState(() {
+        _agreement = UnitAgreement.fromJson(res.data as Map<String, dynamic>);
+        _loading = false;
+      });
+    } on DioException catch (_) {
+      // 404 (no agreement uploaded) or any other failure — just fall back
+      // to showing the unit's own fields below.
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unit = widget.unit;
+    final a = _agreement;
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final dateFmt = DateFormat('MMM d, yyyy');
+
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceLG),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(unit.name,
+                    style: const TextStyle(
+                        fontSize: AppDimensions.fontH3,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
+              ),
+              _UnitStatusBadge(status: unit.status),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.spaceMD),
+          Wrap(
+            spacing: AppDimensions.spaceXL,
+            runSpacing: AppDimensions.spaceSM,
+            children: [
+              if (unit.contact != null && unit.contact!.isNotEmpty)
+                _InfoField(label: 'Contact', value: unit.contact!),
+              if (unit.email != null && unit.email!.isNotEmpty)
+                _InfoField(label: 'Email', value: unit.email!),
+              _InfoField(
+                  label: 'Area',
+                  value: a?.totalAreaSqft != null
+                      ? '${a!.totalAreaSqft!.toStringAsFixed(0)} sq.ft'
+                      : '${unit.totalSqft.toStringAsFixed(0)} sq.ft'),
+              _InfoField(
+                  label: 'Monthly Rent',
+                  value: a?.monthlyRent != null
+                      ? fmt.format(a!.monthlyRent)
+                      : (unit.totalRent > 0
+                          ? fmt.format(unit.totalRent)
+                          : '—')),
+            ],
+          ),
+          if (unit.notes != null && unit.notes!.isNotEmpty) ...[
+            const SizedBox(height: AppDimensions.spaceMD),
+            _InfoField(label: 'Notes', value: unit.notes!),
+          ],
+
+          // ── Agreement Details ────────────────────────────────────
+          const SizedBox(height: AppDimensions.spaceLG),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: AppDimensions.spaceMD),
+          Text('AGREEMENT DETAILS',
+              style: const TextStyle(
+                  fontSize: AppDimensions.fontXS,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textMuted,
+                  letterSpacing: 1.0)),
+          const SizedBox(height: AppDimensions.spaceSM),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppDimensions.spaceMD),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (a == null)
+            const Text(
+              'No rental agreement uploaded yet for this property.',
+              style: TextStyle(
+                  fontSize: AppDimensions.fontSM, color: AppColors.textMuted),
+            )
+          else ...[
+            Wrap(
+              spacing: AppDimensions.spaceXL,
+              runSpacing: AppDimensions.spaceSM,
+              children: [
+                _InfoField(label: 'Lessor / Owner', value: a.ownerName ?? '—'),
+                _InfoField(
+                    label: 'Owner Address', value: a.ownerAddress ?? '—'),
+                _InfoField(
+                    label: 'Lessee / Tenant', value: a.tenantName ?? '—'),
+                _InfoField(
+                    label: 'Tenant Address', value: a.tenantAddress ?? '—'),
+                _InfoField(
+                    label: 'Security Deposit',
+                    value: a.securityDeposit != null
+                        ? fmt.format(a.securityDeposit)
+                        : '—'),
+                _InfoField(
+                    label: 'Profit Sharing', value: a.profitSharing ?? '—'),
+                _InfoField(
+                    label: 'Maintenance Paid By',
+                    value: a.maintenancePaidByLabel.isNotEmpty
+                        ? a.maintenancePaidByLabel
+                        : '—'),
+                _InfoField(
+                    label: 'Furnishing',
+                    value:
+                        a.furnishingLabel.isNotEmpty ? a.furnishingLabel : '—'),
+                _InfoField(
+                    label: 'Car Parking',
+                    value: a.carParkingCount != null
+                        ? '${a.carParkingCount} space${a.carParkingCount == 1 ? '' : 's'}'
+                        : '—'),
+                _InfoField(
+                    label: 'Other Amenities',
+                    value:
+                        a.amenities.isNotEmpty ? a.amenities.join(', ') : '—'),
+                _InfoField(
+                    label: 'Lease Start',
+                    value: a.leaseStartDate != null
+                        ? dateFmt.format(a.leaseStartDate!)
+                        : '—'),
+                _InfoField(
+                    label: 'Lease End',
+                    value: a.leaseEndDate != null
+                        ? dateFmt.format(a.leaseEndDate!)
+                        : '—'),
+                if (a.isGstApplicable) ...[
+                  _InfoField(
+                      label: 'CGST',
+                      value: a.cgstRate != null ? '${a.cgstRate}%' : '—'),
+                  _InfoField(
+                      label: 'SGST',
+                      value: a.sgstRate != null ? '${a.sgstRate}%' : '—'),
+                ],
+              ],
+            ),
+            if (a.fileUrl != null) ...[
+              const SizedBox(height: AppDimensions.spaceMD),
+              GestureDetector(
+                onTap: () => launchUrlString(a.fileUrl!),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.open_in_new,
+                          size: 14, color: AppColors.accentGold),
+                      SizedBox(width: 6),
+                      Text('View original document',
+                          style: TextStyle(
+                              fontSize: AppDimensions.fontSM,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.accentGold)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoField extends StatelessWidget {
+  const _InfoField({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(),
+            style: const TextStyle(
+                fontSize: AppDimensions.fontXS,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textMuted,
+                letterSpacing: 0.5)),
+        const SizedBox(height: 2),
+        Text(value,
+            style: const TextStyle(
+                fontSize: AppDimensions.fontBase,
+                color: AppColors.textPrimary)),
+      ],
     );
   }
 }
@@ -578,8 +852,7 @@ class _UnassignedTenantsView extends StatelessWidget {
                 ),
                 const SizedBox(width: AppDimensions.spaceSM),
                 const Text('/',
-                    style: TextStyle(
-                        color: AppColors.textMuted, fontSize: 18)),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 18)),
                 const SizedBox(width: AppDimensions.spaceSM),
                 const Icon(Icons.warning_amber_rounded,
                     size: AppDimensions.iconMD, color: AppColors.warning),
@@ -607,8 +880,7 @@ class _UnassignedTenantsView extends StatelessWidget {
               const Center(
                 child: Padding(
                   padding: EdgeInsets.only(top: 60),
-                  child:
-                      CircularProgressIndicator(color: AppColors.accentGold),
+                  child: CircularProgressIndicator(color: AppColors.accentGold),
                 ),
               )
             else if (tenants.isEmpty)
@@ -717,158 +989,162 @@ class _TenantVCardState extends State<_TenantVCard> {
   Widget build(BuildContext context) {
     final t = widget.tenant;
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 130),
-        padding: const EdgeInsets.all(AppDimensions.spaceMD),
-        decoration: BoxDecoration(
-          color: AppColors.cardBg,
-          border: Border.all(
-            color: _hovered ? AppColors.accentGold : AppColors.border,
+      child: GestureDetector(
+        onTap: () => context.go('/tenants/${t.id}'),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 130),
+          padding: const EdgeInsets.all(AppDimensions.spaceMD),
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            border: Border.all(
+              color: _hovered ? AppColors.accentGold : AppColors.border,
+            ),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
           ),
-          borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // ── Top: avatar + name + status + delete ────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Avatar(tenant: t),
-                const SizedBox(width: AppDimensions.spaceSM),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.fullName,
-                        style: const TextStyle(
-                          fontSize: AppDimensions.fontBase,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (t.email.isNotEmpty)
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // ── Top: avatar + name + status + delete ────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Avatar(tenant: t),
+                  const SizedBox(width: AppDimensions.spaceSM),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          t.email,
+                          t.fullName,
                           style: const TextStyle(
-                              fontSize: AppDimensions.fontXS,
-                              color: AppColors.textMuted),
+                            fontSize: AppDimensions.fontBase,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                    ],
-                  ),
-                ),
-                _TenantStatusBadge(status: t.status),
-                const SizedBox(width: AppDimensions.spaceXS),
-                // Delete — always visible, large enough tap target
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => widget.onDelete(t),
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.delete_outline,
-                        size: AppDimensions.iconSM,
-                        color: _hovered
-                            ? AppColors.error
-                            : AppColors.textMuted,
-                      ),
+                        if (t.email.isNotEmpty)
+                          Text(
+                            t.email,
+                            style: const TextStyle(
+                                fontSize: AppDimensions.fontXS,
+                                color: AppColors.textMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-
-            // ── Property name / missing-property warning ─────────
-            if (widget.propertyName != null && widget.propertyName!.isNotEmpty)
-              Row(
-                children: [
-                  const Icon(Icons.apartment_outlined,
-                      size: 12, color: AppColors.textMuted),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      widget.propertyName!,
-                      style: const TextStyle(
-                          fontSize: AppDimensions.fontXS,
-                          color: AppColors.textMuted),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              )
-            else
-              Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 12, color: AppColors.warning),
-                  const SizedBox(width: 4),
-                  const Expanded(
-                    child: Text(
-                      'No property assigned',
-                      style: TextStyle(
-                          fontSize: AppDimensions.fontXS,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.warning),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (widget.onAssignProperty != null)
-                    GestureDetector(
-                      onTap: () => widget.onAssignProperty!(t),
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: Text(
-                          'Assign',
-                          style: TextStyle(
-                              fontSize: AppDimensions.fontXS,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.accentGold,
-                              decoration: TextDecoration.underline),
+                  _TenantStatusBadge(status: t.status),
+                  const SizedBox(width: AppDimensions.spaceXS),
+                  // Delete — always visible, large enough tap target
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => widget.onDelete(t),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.delete_outline,
+                          size: AppDimensions.iconSM,
+                          color:
+                              _hovered ? AppColors.error : AppColors.textMuted,
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
 
-            // ── Bottom: phone + move-in ──────────────────────────
-            Row(
-              children: [
-                if (t.phone.isNotEmpty) ...[
-                  const Icon(Icons.phone_outlined,
-                      size: 12, color: AppColors.textMuted),
-                  const SizedBox(width: 4),
-                  Text(t.phone,
+              // ── Property name / missing-property warning ─────────
+              if (widget.propertyName != null &&
+                  widget.propertyName!.isNotEmpty)
+                Row(
+                  children: [
+                    const Icon(Icons.apartment_outlined,
+                        size: 12, color: AppColors.textMuted),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        widget.propertyName!,
+                        style: const TextStyle(
+                            fontSize: AppDimensions.fontXS,
+                            color: AppColors.textMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded,
+                        size: 12, color: AppColors.warning),
+                    const SizedBox(width: 4),
+                    const Expanded(
+                      child: Text(
+                        'No property assigned',
+                        style: TextStyle(
+                            fontSize: AppDimensions.fontXS,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.warning),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (widget.onAssignProperty != null)
+                      GestureDetector(
+                        onTap: () => widget.onAssignProperty!(t),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: Text(
+                            'Assign',
+                            style: TextStyle(
+                                fontSize: AppDimensions.fontXS,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accentGold,
+                                decoration: TextDecoration.underline),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+              // ── Bottom: phone + move-in ──────────────────────────
+              Row(
+                children: [
+                  if (t.phone.isNotEmpty) ...[
+                    const Icon(Icons.phone_outlined,
+                        size: 12, color: AppColors.textMuted),
+                    const SizedBox(width: 4),
+                    Text(t.phone,
+                        style: const TextStyle(
+                            fontSize: AppDimensions.fontXS,
+                            color: AppColors.textMuted)),
+                  ],
+                  const Spacer(),
+                  if (t.moveInDate != null) ...[
+                    const Icon(Icons.calendar_today_outlined,
+                        size: 11, color: AppColors.textMuted),
+                    const SizedBox(width: 3),
+                    Text(
+                      _fmt.format(t.moveInDate!),
                       style: const TextStyle(
                           fontSize: AppDimensions.fontXS,
-                          color: AppColors.textMuted)),
+                          color: AppColors.textMuted),
+                    ),
+                  ],
                 ],
-                const Spacer(),
-                if (t.moveInDate != null) ...[
-                  const Icon(Icons.calendar_today_outlined,
-                      size: 11, color: AppColors.textMuted),
-                  const SizedBox(width: 3),
-                  Text(
-                    _fmt.format(t.moveInDate!),
-                    style: const TextStyle(
-                        fontSize: AppDimensions.fontXS,
-                        color: AppColors.textMuted),
-                  ),
-                ],
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -986,8 +1262,7 @@ class _PropertyCardState extends State<_PropertyCard> {
                           size: AppDimensions.iconSM,
                           color: _hovered
                               ? AppColors.error
-                              : AppColors.textMuted
-                                  .withValues(alpha: 0.4),
+                              : AppColors.textMuted.withValues(alpha: 0.4),
                         ),
                       ),
                     ),
@@ -1025,8 +1300,7 @@ class _PropertyCardState extends State<_PropertyCard> {
               Row(
                 children: [
                   const Icon(Icons.people_outline,
-                      size: AppDimensions.iconSM,
-                      color: AppColors.textMuted),
+                      size: AppDimensions.iconSM, color: AppColors.textMuted),
                   const SizedBox(width: AppDimensions.spaceXS),
                   Text(
                     '${widget.count} tenant${widget.count == 1 ? '' : 's'}',
