@@ -103,8 +103,7 @@ class _TenantMaintenanceScreenState extends State<TenantMaintenanceScreen> {
                   });
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Request submitted.')),
+                      const SnackBar(content: Text('Request submitted.')),
                     );
                   }
                 } catch (e) {
@@ -156,8 +155,8 @@ class _TenantMaintenanceScreenState extends State<TenantMaintenanceScreen> {
             const SizedBox(height: AppDimensions.spaceXL),
             if (p.isLoading)
               const Center(
-                  child: CircularProgressIndicator(
-                      color: AppColors.accentSilver))
+                  child:
+                      CircularProgressIndicator(color: AppColors.accentSilver))
             else if (p.maintenance.isEmpty)
               const Center(
                   child: Text('No maintenance requests.',
@@ -270,25 +269,21 @@ class _MaintenanceCard extends StatelessWidget {
 
 InputDecoration _dec(String hint) => InputDecoration(
       hintText: hint,
-      hintStyle:
-          const TextStyle(color: AppColors.textMuted, fontSize: 13),
+      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
       filled: true,
       fillColor: AppColors.pageBg,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderSide: const BorderSide(color: AppColors.border),
-        borderRadius:
-            BorderRadius.circular(AppDimensions.radiusXS),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
       ),
       enabledBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: AppColors.border),
-        borderRadius:
-            BorderRadius.circular(AppDimensions.radiusXS),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
       ),
       focusedBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: AppColors.accentSilver),
-        borderRadius:
-            BorderRadius.circular(AppDimensions.radiusXS),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
       ),
     );
 

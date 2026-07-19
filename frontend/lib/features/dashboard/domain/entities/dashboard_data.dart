@@ -151,7 +151,7 @@ class DashboardData {
     accountingMonths: [
       AccountingMonth(month: 'Aug', income: 1200, expense: 400),
       AccountingMonth(month: 'Sep', income: 2100, expense: 800),
-      AccountingMonth(month: 'Oct', income: 900,  expense: 300),
+      AccountingMonth(month: 'Oct', income: 900, expense: 300),
       AccountingMonth(month: 'Nov', income: 3200, expense: 1100),
       AccountingMonth(month: 'Dec', income: 4800, expense: 1500),
       AccountingMonth(month: 'Jan', income: 5200, expense: 1800),

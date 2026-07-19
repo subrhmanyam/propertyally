@@ -29,18 +29,22 @@ class AccountingProvider extends BaseProvider {
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list.where((t) =>
-          t.description.toLowerCase().contains(q) ||
-          (t.tenantName?.toLowerCase().contains(q) ?? false) ||
-          (t.propertyName?.toLowerCase().contains(q) ?? false) ||
-          (t.referenceNo?.toLowerCase().contains(q) ?? false) ||
-          t.category.toLowerCase().contains(q)).toList();
+      list = list
+          .where((t) =>
+              t.description.toLowerCase().contains(q) ||
+              (t.tenantName?.toLowerCase().contains(q) ?? false) ||
+              (t.propertyName?.toLowerCase().contains(q) ?? false) ||
+              (t.referenceNo?.toLowerCase().contains(q) ?? false) ||
+              t.category.toLowerCase().contains(q))
+          .toList();
     }
     return list;
   }
 
   double get totalIncome => _transactions
-      .where((t) => t.type == TransactionType.income && t.status == TransactionStatus.paid)
+      .where((t) =>
+          t.type == TransactionType.income &&
+          t.status == TransactionStatus.paid)
       .fold(0, (sum, t) => sum + t.amount);
 
   double get totalExpenses => _transactions
@@ -53,7 +57,8 @@ class AccountingProvider extends BaseProvider {
       .where((t) =>
           t.type == TransactionType.income &&
           t.category == 'Rent' &&
-          (t.status == TransactionStatus.pending || t.status == TransactionStatus.overdue))
+          (t.status == TransactionStatus.pending ||
+              t.status == TransactionStatus.overdue))
       .fold(0, (sum, t) => sum + t.amount);
 
   Future<void> loadTransactions() async {

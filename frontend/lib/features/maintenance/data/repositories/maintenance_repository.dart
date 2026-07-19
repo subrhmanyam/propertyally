@@ -21,7 +21,9 @@ class MaintenanceRepository {
       queryParameters: params.isEmpty ? null : params,
     );
     final list = (resp.data as List?) ?? [];
-    return list.map((e) => MaintenanceRequest.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => MaintenanceRequest.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<MaintenanceRequest> create(Map<String, dynamic> data) async {
@@ -30,7 +32,8 @@ class MaintenanceRepository {
   }
 
   /// Updates only the status by sending the existing request fields with new status.
-  Future<MaintenanceRequest> updateStatus(MaintenanceRequest req, String newStatus) async {
+  Future<MaintenanceRequest> updateStatus(
+      MaintenanceRequest req, String newStatus) async {
     final body = req.toJson()..['status'] = newStatus;
     final resp = await _dio.put('/api/v1/maintenance/${req.id}', data: body);
     return MaintenanceRequest.fromJson(resp.data as Map<String, dynamic>);

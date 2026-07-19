@@ -51,7 +51,8 @@ class _TodayCardState extends State<TodayCard> {
                         const TextSpan(text: '  '),
                         TextSpan(
                           text: 'You have ',
-                          style: const TextStyle(color: AppColors.textSecondary),
+                          style:
+                              const TextStyle(color: AppColors.textSecondary),
                         ),
                         TextSpan(
                           text: '${widget.data.reminderCount} reminder',
@@ -128,7 +129,8 @@ class _OnboardingCard extends StatelessWidget {
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.chevron_left, size: AppDimensions.iconMD),
+                    icon: const Icon(Icons.chevron_left,
+                        size: AppDimensions.iconMD),
                     onPressed: () {},
                     color: AppColors.textSecondary,
                     padding: EdgeInsets.zero,
@@ -142,7 +144,8 @@ class _OnboardingCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.chevron_right, size: AppDimensions.iconMD),
+                    icon: const Icon(Icons.chevron_right,
+                        size: AppDimensions.iconMD),
                     onPressed: () {},
                     color: AppColors.textSecondary,
                     padding: EdgeInsets.zero,

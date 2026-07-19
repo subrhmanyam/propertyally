@@ -232,8 +232,7 @@ class _ActionTile extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Icon(icon,
-                    size: AppDimensions.iconXL,
-                    color: AppColors.accentSilver),
+                    size: AppDimensions.iconXL, color: AppColors.accentSilver),
                 if (badge > 0)
                   Positioned(
                     top: -4,
@@ -279,8 +278,7 @@ class _InvoiceRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: AppDimensions.spaceSM),
       padding: const EdgeInsets.symmetric(
-          horizontal: AppDimensions.spaceLG,
-          vertical: AppDimensions.spaceMD),
+          horizontal: AppDimensions.spaceLG, vertical: AppDimensions.spaceMD),
       decoration: BoxDecoration(
         color: AppColors.cardBg,
         border: Border.all(color: AppColors.border),
@@ -292,8 +290,7 @@ class _InvoiceRow extends StatelessWidget {
             child: Text(
               inv['description'] ?? 'Invoice',
               style: const TextStyle(
-                  fontSize: AppDimensions.fontSM,
-                  color: AppColors.textPrimary),
+                  fontSize: AppDimensions.fontSM, color: AppColors.textPrimary),
             ),
           ),
           Text(
@@ -314,9 +311,8 @@ class _InvoiceRow extends StatelessWidget {
               isPaid ? 'Paid' : 'Due',
               style: TextStyle(
                   fontSize: 11,
-                  color: isPaid
-                      ? AppColors.occupiedText
-                      : AppColors.vacantText),
+                  color:
+                      isPaid ? AppColors.occupiedText : AppColors.vacantText),
             ),
           ),
         ],

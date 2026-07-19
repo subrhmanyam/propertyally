@@ -82,7 +82,8 @@ class _SearchFieldState extends State<_SearchField> {
       _removeOverlay();
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 350), () => _doSearch(value));
+    _debounce =
+        Timer(const Duration(milliseconds: 350), () => _doSearch(value));
   }
 
   Future<void> _doSearch(String q) async {
@@ -103,16 +104,17 @@ class _SearchFieldState extends State<_SearchField> {
   void _showOverlay() {
     _removeOverlay();
     if (_results.isEmpty) return;
-    _overlay = OverlayEntry(builder: (_) => _SearchOverlay(
-      link: _layerLink,
-      results: _results,
-      onSelect: (result) {
-        _removeOverlay();
-        _ctrl.clear();
-        _focusNode.unfocus();
-        context.go(result.route);
-      },
-    ));
+    _overlay = OverlayEntry(
+        builder: (_) => _SearchOverlay(
+              link: _layerLink,
+              results: _results,
+              onSelect: (result) {
+                _removeOverlay();
+                _ctrl.clear();
+                _focusNode.unfocus();
+                context.go(result.route);
+              },
+            ));
     Overlay.of(context).insert(_overlay!);
   }
 
@@ -134,7 +136,8 @@ class _SearchFieldState extends State<_SearchField> {
           onTap: () {
             if (_results.isNotEmpty) _showOverlay();
           },
-          style: const TextStyle(fontSize: AppDimensions.fontBase, color: AppColors.textPrimary),
+          style: const TextStyle(
+              fontSize: AppDimensions.fontBase, color: AppColors.textPrimary),
           decoration: InputDecoration(
             prefixIcon: _loading
                 ? const Padding(
@@ -162,7 +165,8 @@ class _SearchFieldState extends State<_SearchField> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
-              borderSide: const BorderSide(color: AppColors.accentGold, width: 1.5),
+              borderSide:
+                  const BorderSide(color: AppColors.accentGold, width: 1.5),
             ),
           ),
         ),
@@ -199,7 +203,10 @@ class _SearchOverlay extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
               border: Border.all(color: AppColors.border),
               boxShadow: const [
-                BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
+                BoxShadow(
+                    color: Colors.black54,
+                    blurRadius: 16,
+                    offset: Offset(0, 4)),
               ],
             ),
             child: ClipRRect(
@@ -314,7 +321,8 @@ class _TopBarIconBtn extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(AppDimensions.spaceXS),
-          child: Icon(icon, color: AppColors.topBarIcon, size: AppDimensions.iconMD),
+          child: Icon(icon,
+              color: AppColors.topBarIcon, size: AppDimensions.iconMD),
         ),
       ),
     );
@@ -394,7 +402,8 @@ class _UserChip extends StatelessWidget {
                         fontWeight: FontWeight.w700)),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down, size: 16, color: AppColors.textMuted),
+              const Icon(Icons.keyboard_arrow_down,
+                  size: 16, color: AppColors.textMuted),
             ],
           ),
         );

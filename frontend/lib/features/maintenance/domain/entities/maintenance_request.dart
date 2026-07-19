@@ -45,7 +45,8 @@ class MaintenanceRequest {
         title: json['title']?.toString() ?? '',
         priority: _parsePriority(json['priority']?.toString()),
         status: _parseStatus(json['status']?.toString()),
-        createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+        createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+            DateTime.now(),
         description: json['description']?.toString(),
         category: json['category']?.toString(),
         leasingUnitId: json['leasing_unit_id']?.toString(),
@@ -60,7 +61,8 @@ class MaintenanceRequest {
             ? DateTime.tryParse(json['completed_date'].toString())
             : null,
         notes: json['notes']?.toString(),
-        photos: (json['photos'] as List?)?.map((e) => e.toString()).toList() ?? [],
+        photos:
+            (json['photos'] as List?)?.map((e) => e.toString()).toList() ?? [],
       );
 
   static MaintPriority _parsePriority(String? s) => switch (s) {

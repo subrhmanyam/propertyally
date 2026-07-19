@@ -33,12 +33,15 @@ class ErrorInterceptor extends Interceptor {
         if (statusCode == 401) {
           return const UnauthorizedException();
         } else if (statusCode == 404) {
-          return const NotFoundException(message: 'The requested resource was not found.');
+          return const NotFoundException(
+              message: 'The requested resource was not found.');
         } else if (statusCode >= 500) {
-          return const ServerException(message: 'A server error occurred. Please try again later.');
+          return const ServerException(
+              message: 'A server error occurred. Please try again later.');
         }
         return AppException(
-          message: err.response?.data?['message']?.toString() ?? 'An unexpected error occurred.',
+          message: err.response?.data?['message']?.toString() ??
+              'An unexpected error occurred.',
           statusCode: statusCode,
         );
 

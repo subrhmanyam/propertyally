@@ -22,7 +22,8 @@ class PropertiesProvider extends BaseProvider {
   List<Property> _filteredProperties() {
     var list = _properties;
     if (_statusFilter == 'Vacant') {
-      list = list.where((p) => p.units.any((u) => u.status == 'vacant')).toList();
+      list =
+          list.where((p) => p.units.any((u) => u.status == 'vacant')).toList();
     } else if (_statusFilter == 'Occupied') {
       list = list.where((p) => p.occupancyRate == 100).toList();
     }

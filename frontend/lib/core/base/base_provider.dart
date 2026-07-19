@@ -22,10 +22,12 @@ abstract class BaseProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return result;
-    } catch (e) {
+    } catch (e, st) {
       _isLoading = false;
       _errorMessage = e.toString();
       notifyListeners();
+      debugPrint('[$runtimeType] runAsync error: $e');
+      debugPrintStack(stackTrace: st);
       return null;
     }
   }

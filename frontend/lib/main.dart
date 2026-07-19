@@ -43,7 +43,8 @@ class BogiPropertyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TasksProvider()),
         ChangeNotifierProvider(create: (_) => TenantProvider()),
         ChangeNotifierProvider(create: (_) => ServicesProvider()),
-        ChangeNotifierProvider(create: (_) => InvoiceSettingsProvider()..load()),
+        ChangeNotifierProvider(
+            create: (_) => InvoiceSettingsProvider()..load()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {

@@ -275,7 +275,8 @@ class _SidebarIconBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
         child: Padding(
           padding: const EdgeInsets.all(AppDimensions.spaceSM),
-          child: Icon(icon, color: AppColors.sidebarIcon, size: AppDimensions.iconMD),
+          child: Icon(icon,
+              color: AppColors.sidebarIcon, size: AppDimensions.iconMD),
         ),
       ),
     );

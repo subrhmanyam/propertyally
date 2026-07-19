@@ -3,7 +3,8 @@ import '../../data/repositories/tasks_repository.dart';
 import '../../domain/entities/task.dart';
 
 class TasksProvider extends ChangeNotifier {
-  TasksProvider({TasksRepository? repository}) : _repository = repository ?? TasksRepository();
+  TasksProvider({TasksRepository? repository})
+      : _repository = repository ?? TasksRepository();
 
   final TasksRepository _repository;
 
@@ -49,14 +50,16 @@ class TasksProvider extends ChangeNotifier {
   }) async {
     final newTask = await _repository.createTask({
       'title': title,
-      if (description != null && description.isNotEmpty) 'description': description,
+      if (description != null && description.isNotEmpty)
+        'description': description,
       if (propertyId != null) 'property_id': propertyId,
       if (leasingUnitId != null) 'leasing_unit_id': leasingUnitId,
       if (assignedTo != null) 'assigned_to': assignedTo,
       'priority': priority,
       'status': status,
       if (dueDate != null) 'due_date': dueDate,
-      if (recurringRule != null && recurringRule.isNotEmpty) 'recurring_rule': recurringRule,
+      if (recurringRule != null && recurringRule.isNotEmpty)
+        'recurring_rule': recurringRule,
     });
     tasks = [newTask, ...tasks];
     notifyListeners();

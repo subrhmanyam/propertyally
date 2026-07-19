@@ -2,7 +2,8 @@ import '../../../../core/network/api_client.dart';
 import '../../domain/entities/calendar_event.dart';
 
 class CalendarRepository {
-  Future<List<CalendarEvent>> getEvents({DateTime? start, DateTime? end, String? eventType}) async {
+  Future<List<CalendarEvent>> getEvents(
+      {DateTime? start, DateTime? end, String? eventType}) async {
     final params = <String, dynamic>{};
     if (start != null) params['start'] = start.toIso8601String();
     if (end != null) params['end'] = end.toIso8601String();

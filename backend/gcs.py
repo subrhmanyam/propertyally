@@ -172,3 +172,7 @@ def upload_public_bytes(
 
 def delete_public_object(object_path: str) -> None:
     get_public_bucket().blob(object_path).delete()
+
+
+def delete_object(object_path: str) -> None:
+    get_bucket().blob(object_path).delete()

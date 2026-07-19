@@ -81,8 +81,7 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
 
     _items = [
       InvoiceLineItem(
-        description:
-            'Leave and License Fee for a Month\n${_monthCtrl.text}',
+        description: 'Leave and License Fee for a Month\n${_monthCtrl.text}',
         amount: widget.unit.totalRent,
         taxable: true,
       ),
@@ -107,9 +106,20 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
   @override
   void dispose() {
     for (final c in [
-      _invoiceNoCtrl, _monthCtrl, _billToNameCtrl, _billToAddressCtrl,
-      _billToGstinCtrl, _ownerNameCtrl, _companyCtrl, _addressCtrl,
-      _gstinCtrl, _reraCtrl, _emailCtrl, _bankNameCtrl, _accountNoCtrl, _ifscCtrl,
+      _invoiceNoCtrl,
+      _monthCtrl,
+      _billToNameCtrl,
+      _billToAddressCtrl,
+      _billToGstinCtrl,
+      _ownerNameCtrl,
+      _companyCtrl,
+      _addressCtrl,
+      _gstinCtrl,
+      _reraCtrl,
+      _emailCtrl,
+      _bankNameCtrl,
+      _accountNoCtrl,
+      _ifscCtrl,
     ]) {
       c.dispose();
     }
@@ -122,11 +132,16 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
       _items.where((i) => i.taxable).fold(0.0, (a, b) => a + b.amount);
   double get _subtotal => _items.fold(0.0, (a, b) => a + b.amount);
   double get _cgst =>
-      _taxableTotal * context.read<InvoiceSettingsProvider>().settings.cgstRate / 100;
+      _taxableTotal *
+      context.read<InvoiceSettingsProvider>().settings.cgstRate /
+      100;
   double get _sgst =>
-      _taxableTotal * context.read<InvoiceSettingsProvider>().settings.sgstRate / 100;
-  double get _grandTotal =>
-      _template == InvoiceTemplate.simpleReceipt ? _subtotal : _subtotal + _cgst + _sgst;
+      _taxableTotal *
+      context.read<InvoiceSettingsProvider>().settings.sgstRate /
+      100;
+  double get _grandTotal => _template == InvoiceTemplate.simpleReceipt
+      ? _subtotal
+      : _subtotal + _cgst + _sgst;
 
   // ── PDF actions ───────────────────────────────────────────────────
 
@@ -142,7 +157,9 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
       billToName: _billToNameCtrl.text.trim(),
       billToAddress: _billToAddressCtrl.text.trim(),
       billToGstin: _billToGstinCtrl.text.trim(),
-      items: _items.where((i) => i.amount > 0 || i.description.isNotEmpty).toList(),
+      items: _items
+          .where((i) => i.amount > 0 || i.description.isNotEmpty)
+          .toList(),
       month: _monthCtrl.text.trim(),
     );
   }
@@ -168,8 +185,7 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
     final total = _grandTotal;
     final due = _dueDate;
     final settings = _settingsFromForm(sp.settings);
-    final filename =
-        'Invoice_${invoiceNo}_${billTo.replaceAll(' ', '_')}.pdf';
+    final filename = 'Invoice_${invoiceNo}_${billTo.replaceAll(' ', '_')}.pdf';
     try {
       final bytes = await _buildPdf();
       if (!mounted) return;
@@ -209,7 +225,8 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
     }
   }
 
-  InvoiceSettings _settingsFromForm(InvoiceSettings existing) => InvoiceSettings(
+  InvoiceSettings _settingsFromForm(InvoiceSettings existing) =>
+      InvoiceSettings(
         ownerName: _ownerNameCtrl.text.trim(),
         companyName: _companyCtrl.text.trim(),
         address: _addressCtrl.text.trim(),
@@ -254,7 +271,8 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
   @override
   Widget build(BuildContext context) {
     final sp = context.watch<InvoiceSettingsProvider>();
-    final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 2, locale: 'en_IN');
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 2, locale: 'en_IN');
 
     return Dialog(
       backgroundColor: AppColors.cardBg,
@@ -272,7 +290,8 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
             _TitleBar(
               unit: widget.unit,
               showSettings: _showSettings,
-              onSettingsToggle: () => setState(() => _showSettings = !_showSettings),
+              onSettingsToggle: () =>
+                  setState(() => _showSettings = !_showSettings),
               onClose: () => Navigator.pop(context),
             ),
             const Divider(color: AppColors.border, height: 1),
@@ -326,7 +345,8 @@ class _InvoiceGeneratorDialogState extends State<InvoiceGeneratorDialog> {
             const Divider(color: AppColors.border, height: 1),
             Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.spaceLG, vertical: AppDimensions.spaceMD),
+                  horizontal: AppDimensions.spaceLG,
+                  vertical: AppDimensions.spaceMD),
               child: Row(
                 children: [
                   Text(
@@ -407,9 +427,8 @@ class _TitleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppDimensions.spaceLG, AppDimensions.spaceMD,
-          AppDimensions.spaceSM, AppDimensions.spaceMD),
+      padding: const EdgeInsets.fromLTRB(AppDimensions.spaceLG,
+          AppDimensions.spaceMD, AppDimensions.spaceSM, AppDimensions.spaceMD),
       child: Row(
         children: [
           const Icon(Icons.receipt_long_outlined,
@@ -505,7 +524,8 @@ class _SettingsForm extends StatelessWidget {
               ),
               child: sp.settings.logoBase64 != null
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusXS),
                       child: Image.memory(
                         base64Decode(sp.settings.logoBase64!),
                         fit: BoxFit.contain,
@@ -695,7 +715,8 @@ class _InvoiceForm extends StatelessWidget {
         _SectionTitle('Bill To'),
         const SizedBox(height: AppDimensions.spaceMD),
         Row(children: [
-          Expanded(flex: 2, child: _Field('Company / Tenant Name', billToNameCtrl)),
+          Expanded(
+              flex: 2, child: _Field('Company / Tenant Name', billToNameCtrl)),
           const SizedBox(width: AppDimensions.spaceMD),
           Expanded(child: _Field('GSTIN (optional)', billToGstinCtrl)),
         ]),
@@ -728,11 +749,9 @@ class _InvoiceForm extends StatelessWidget {
               children: [
                 _TotalRow('Subtotal (taxable)', fmt.format(taxableTotal)),
                 if (showGst) ...[
-                  _TotalRow(
-                      'CGST @ ${settings.cgstRate.toStringAsFixed(0)}%',
+                  _TotalRow('CGST @ ${settings.cgstRate.toStringAsFixed(0)}%',
                       fmt.format(cgst)),
-                  _TotalRow(
-                      'SGST @ ${settings.sgstRate.toStringAsFixed(0)}%',
+                  _TotalRow('SGST @ ${settings.sgstRate.toStringAsFixed(0)}%',
                       fmt.format(sgst)),
                 ],
                 const Divider(color: AppColors.border),
@@ -767,7 +786,8 @@ class _LineItemsTable extends StatelessWidget {
         // Header
         Container(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.spaceMD, vertical: AppDimensions.spaceSM),
+              horizontal: AppDimensions.spaceMD,
+              vertical: AppDimensions.spaceSM),
           decoration: const BoxDecoration(
             color: AppColors.pageBg,
             border: Border(bottom: BorderSide(color: AppColors.border)),
@@ -777,8 +797,7 @@ class _LineItemsTable extends StatelessWidget {
               const Expanded(flex: 5, child: _TH('Description')),
               const Expanded(flex: 2, child: _TH('Amount (₹)', right: true)),
               if (showGst)
-                const SizedBox(
-                    width: 70, child: _TH('Taxable', right: true)),
+                const SizedBox(width: 70, child: _TH('Taxable', right: true)),
               const SizedBox(width: 32),
             ],
           ),
@@ -802,7 +821,8 @@ class _LineItemsTable extends StatelessWidget {
           icon: const Icon(Icons.add, size: 16, color: AppColors.accentSilver),
           label: const Text('Add Item',
               style: TextStyle(
-                  fontSize: AppDimensions.fontSM, color: AppColors.accentSilver)),
+                  fontSize: AppDimensions.fontSM,
+                  color: AppColors.accentSilver)),
           onPressed: () {
             items.add(InvoiceLineItem(description: '', amount: 0));
             onChanged();
@@ -839,7 +859,9 @@ class _LineItemRowState extends State<_LineItemRow> {
     super.initState();
     _descCtrl = TextEditingController(text: widget.item.description);
     _amtCtrl = TextEditingController(
-        text: widget.item.amount > 0 ? widget.item.amount.toStringAsFixed(0) : '');
+        text: widget.item.amount > 0
+            ? widget.item.amount.toStringAsFixed(0)
+            : '');
   }
 
   @override
@@ -963,14 +985,17 @@ class _TemplateCard extends StatelessWidget {
             children: [
               Icon(icon,
                   size: 28,
-                  color: selected ? AppColors.accentSilver : AppColors.textMuted),
+                  color:
+                      selected ? AppColors.accentSilver : AppColors.textMuted),
               const SizedBox(height: 6),
               Text(title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: AppDimensions.fontSM,
                       fontWeight: FontWeight.w600,
-                      color: selected ? AppColors.accentSilver : AppColors.textPrimary)),
+                      color: selected
+                          ? AppColors.accentSilver
+                          : AppColors.textPrimary)),
               const SizedBox(height: 2),
               Text(subtitle,
                   textAlign: TextAlign.center,
@@ -1041,8 +1066,7 @@ InputDecoration _inputDec(String label) => InputDecoration(
       labelStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
       filled: true,
       fillColor: AppColors.pageBg,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderSide: const BorderSide(color: AppColors.border),
         borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
@@ -1191,8 +1215,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
       'Due Date: $_dueDateFormatted\n\n'
       'Please find the attached PDF invoice.';
 
-  String get _emailBody =>
-      'Dear ${widget.billToName},\n\n'
+  String get _emailBody => 'Dear ${widget.billToName},\n\n'
       'Please find the invoice details below:\n\n'
       'Invoice No : ${widget.invoiceNo}\n'
       'Month      : ${widget.month}\n'
@@ -1210,8 +1233,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
   Future<void> _downloadPdf() async {
     setState(() => _downloading = true);
     try {
-      await Printing.sharePdf(
-          bytes: widget.bytes, filename: widget.filename);
+      await Printing.sharePdf(bytes: widget.bytes, filename: widget.filename);
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
@@ -1285,8 +1307,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
           Text(
             '${widget.billToName}  •  ${widget.month}  •  $_amtFormatted',
             style: const TextStyle(
-                fontSize: AppDimensions.fontSM,
-                color: AppColors.textMuted),
+                fontSize: AppDimensions.fontSM, color: AppColors.textMuted),
           ),
           const SizedBox(height: 24),
 
@@ -1303,8 +1324,8 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                 loading: _downloading,
               ),
               _ShareOption(
-                icon: const Icon(Icons.email_outlined, size: 32,
-                    color: Color(0xFF4285F4)),
+                icon: const Icon(Icons.email_outlined,
+                    size: 32, color: Color(0xFF4285F4)),
                 label: 'Email',
                 sublabel: 'Open mail client',
                 color: const Color(0xFF4285F4),
@@ -1312,8 +1333,8 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                 loading: false,
               ),
               _ShareOption(
-                icon: const Icon(Icons.download_outlined, size: 32,
-                    color: AppColors.accentSilver),
+                icon: const Icon(Icons.download_outlined,
+                    size: 32, color: AppColors.accentSilver),
                 label: 'Download',
                 sublabel: 'Save PDF locally',
                 color: AppColors.accentSilver,
@@ -1429,8 +1450,8 @@ class _ShareOption extends StatelessWidget {
                     color: AppColors.textPrimary)),
             Text(sublabel,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 10, color: AppColors.textMuted)),
+                style:
+                    const TextStyle(fontSize: 10, color: AppColors.textMuted)),
           ],
         ),
       ),

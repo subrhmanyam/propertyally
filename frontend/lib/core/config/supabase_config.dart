@@ -5,5 +5,6 @@ class SupabaseConfig {
   SupabaseConfig._();
 
   static const String url = 'https://lysvzsheclvlvabbbiea.supabase.co';
-  static const String anonKey = 'sb_publishable_vjmOoWa7DvWqLPy3uRT3YA_ikoei1Ow';
+  static const String anonKey =
+      'sb_publishable_vjmOoWa7DvWqLPy3uRT3YA_ikoei1Ow';
 }

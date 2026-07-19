@@ -111,7 +111,13 @@ class _MobileBottomNav extends StatelessWidget {
       Icons.monetization_on_outlined,
       Icons.build_outlined,
     ];
-    const labels = ['Dashboard', 'Properties', 'Tenants', 'Accounting', 'Maintenance'];
+    const labels = [
+      'Dashboard',
+      'Properties',
+      'Tenants',
+      'Accounting',
+      'Maintenance'
+    ];
 
     final currentIndex = items.indexOf(activeItem).clamp(0, items.length - 1);
 

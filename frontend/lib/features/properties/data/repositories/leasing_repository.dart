@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/leasing_unit.dart';
 
@@ -29,11 +30,8 @@ class LeasingRepository {
     try {
       // Strip the local id so Supabase generates a valid UUID.
       final payload = Map<String, dynamic>.from(unit.toJson())..remove('id');
-      final row = await _db
-          .from('leasing_units')
-          .insert(payload)
-          .select()
-          .single();
+      final row =
+          await _db.from('leasing_units').insert(payload).select().single();
 
       final savedId = row['id'].toString();
       for (final a in unit.areas) {
@@ -55,10 +53,7 @@ class LeasingRepository {
   Future<void> update(LeasingUnit unit) async {
     try {
       final payload = Map<String, dynamic>.from(unit.toJson())..remove('id');
-      await _db
-          .from('leasing_units')
-          .update(payload)
-          .eq('id', unit.id);
+      await _db.from('leasing_units').update(payload).eq('id', unit.id);
 
       // Replace area entries
       await _db.from('area_entries').delete().eq('leasing_unit_id', unit.id);
@@ -68,8 +63,12 @@ class LeasingRepository {
           'leasing_unit_id': unit.id,
         });
       }
-    } catch (_) {
-      // Offline — provider already updated in memory
+    } catch (e, st) {
+      // Offline — provider already updated in memory. Logged (not silent)
+      // so status-only updates (e.g. auto-marking a unit occupied) that
+      // fail server-side are still diagnosable.
+      debugPrint('LeasingRepository.update FAILED for unit ${unit.id}: $e');
+      debugPrintStack(stackTrace: st);
     }
   }
 
@@ -87,10 +86,7 @@ class LeasingRepository {
   Future<void> deletePortfolio(List<String> unitIds) async {
     try {
       if (unitIds.isEmpty) return;
-      await _db
-          .from('tenants')
-          .delete()
-          .inFilter('leasing_unit_id', unitIds);
+      await _db.from('tenants').delete().inFilter('leasing_unit_id', unitIds);
       await _db
           .from('area_entries')
           .delete()

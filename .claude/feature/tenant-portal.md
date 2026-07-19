@@ -1,0 +1,53 @@
+# Tenant Portal (Self-Service)
+
+## Purpose
+Self-service portal for a signed-in tenant to view their unit/lease/invoices, submit maintenance requests, message the admin, and request services. Separate app section from the admin `tenants` feature, gated to Supabase-auth users linked to a `tenants` row.
+
+## Frontend
+- **Screens** (all under `frontend/lib/features/tenant/presentation/screens/`), routed at `/tenant`, `/tenant/invoices`, `/tenant/services`, `/tenant/maintenance`, `/tenant/messages` (see `frontend/lib/core/router/` — mounted inside a `tenant_shell.dart` shell route, redirect logic keeps admins out of `/tenant/*` and tenants out of admin routes):
+  - `tenant_home_screen.dart` — dashboard: unit summary, quick-action tiles (Invoices/Services/Maintenance/Messages with unread/open badges), recent invoices.
+  - `tenant_invoices_screen.dart` — list of invoices (from `transactions` where `type = income`), each with a "Pay" button that opens a Stripe Checkout session in a new tab.
+  - `tenant_maintenance_screen.dart` — list + "New Request" dialog (title/description/priority) for maintenance requests.
+  - `tenant_messages_screen.dart` — list of tenant↔admin message threads (`tenant_queries` + replies), "New Message" dialog, thread view with reply box.
+  - `tenant_services_screen.dart` — browse service catalog (filtered by the tenant's unit category), submit a service request (description, expenses-borne-by Owner/Tenant, estimated cost), view "My Requests" with Approve/Review/Decline actions when `approval_required_from == 'Tenant'`, and upload/download/delete supporting documents per request.
+- **Providers**: `frontend/lib/features/tenant/presentation/providers/tenant_provider.dart` (`TenantProvider`, plain `ChangeNotifier`, not `BaseProvider`) — owns `profile, unit, lease, invoices, maintenance, queries, serviceRequests, serviceCatalog`. `loadAll()` fires all the "my-*" GETs in parallel via `Future.wait`, then unit/lease/catalog in a second parallel batch (catalog needs the unit's category from the first batch).
+- **Repositories**: `frontend/lib/features/tenant/data/repositories/tenant_repository.dart` (`TenantRepository`) — **all calls go through the backend API** via `ApiClient.instance` (Dio), never direct Supabase table access (contrast with the admin `tenants` feature, which is direct-Supabase). Every call attaches `?user_id=<current Supabase auth uid>` via `_qp` (from `Supabase.instance.client.auth.currentUser?.id`).
+- **Domain entities**: none — this feature has no dedicated entity classes; everything is passed around as raw `Map<String, dynamic>` from the API responses straight into the provider and screens.
+
+## Backend
+- Router: `backend/routers/tenant.py`, mounted at `/api/v1/tenant` (singular) in `backend/main.py` (line ~64) — distinct from the admin `tenants.py` router mounted at `/api/v1/tenants` (plural).
+- Also used by this feature (separate routers, separate files):
+  - `backend/routers/service_catalog.py`, mounted at `/api/v1/service-catalog` — `GET /` (list, optional `category` filter) used by `getServiceCatalog`.
+  - `backend/routers/service_requests.py`, mounted at `/api/v1/service-requests` — has its **own copy** of the `_get_tenant(sb, user_id)` helper (line 19, duplicated from `tenant.py`, not shared). Endpoints used: `POST /` (create), `GET /my` (list mine), `PATCH /{request_id}/tenant-decision` (approve/review/decline), `POST /{request_id}/documents` (upload), `GET /documents/{document_id}/download`, `DELETE /{request_id}/documents/{document_id}`.
+  - `backend/routers/stripe_payments.py`, mounted at `/api/v1/payments` — `POST /checkout` used by `createCheckoutSession` for the "Pay" button.
+- Key endpoints on `tenant.py` actually used by the frontend:
+  - `GET /me` — profile + tenant row + joined `leasing_units(id, name, category, floor, status)`.
+  - `GET /my-unit` — the linked unit plus its `area_entries`.
+  - `GET /my-lease` — most recent lease row (404 if none — frontend treats 404 as "no lease" and returns `null`, not an error).
+  - `GET /my-invoices` — `transactions` rows for this tenant where `type = 'income'`.
+  - `GET /my-maintenance`, `POST /my-maintenance` — `maintenance_requests` table.
+  - `GET /my-queries`, `POST /my-queries`, `POST /my-queries/{query_id}/reply` — `tenant_queries` + `tenant_query_replies`.
+  - Also present but for the **admin** side, not this feature: `GET /queries` and `POST /queries/{query_id}/reply` (no `user_id` param, lists/replies to all tenants' queries — likely consumed by an admin messages screen elsewhere, not part of this portal).
+- Auth pattern: every tenant-portal-facing endpoint takes `user_id` as a plain query parameter (the Supabase auth UID, sent by the Flutter client — **not** verified server-side against a JWT/session, just trusted as passed). The backend resolves it via `_get_tenant(sb, user_id)` (defined in both `tenant.py` line 15 and independently duplicated in `service_requests.py` line 19): `SELECT * FROM tenants WHERE auth_user_id = :user_id LIMIT 1`, raising `404` if no match. All "my-*" data is then scoped by that resolved `tenant["id"]` / `tenant["leasing_unit_id"]`. So: **any endpoint a tenant calls needs `?user_id=<supabase auth uid>`, and the backend maps that uid → a `tenants` row via `auth_user_id`** — there is no tenant-side row until an admin (or some other flow) sets `tenants.auth_user_id` for that person.
+  - Exception: the service-request **document** endpoints (`POST /{request_id}/documents`, `DELETE .../documents/{document_id}`, `GET /documents/{document_id}/download` in `service_requests.py`) take **no `user_id`** and do **no ownership check** — any caller who knows/guesses a `request_id`/`document_id` can upload, download, or delete documents on any service request. Worth flagging if this becomes security-sensitive.
+
+## Database
+- Tables touched: `tenants` (via `auth_user_id`, see `tenants.md` for full column history), `leasing_units`, `area_entries`, `leases`, `transactions` (invoices, `type='income'`), `maintenance_requests`, `tenant_queries` + `tenant_query_replies`, `service_catalog` (services), `service_requests` + `documents` (service_request_id FK).
+- `tenants.auth_user_id` (UUID, `references auth.users(id) on delete set null`) is the linchpin of this whole feature — added in `supabase_tenants_migration.sql`'s base `CREATE TABLE` block (not in the numbered `001_initial_schema.sql`, which has no `auth_user_id` column on `tenants` at all). If a tenant's Supabase auth account isn't linked via this column, every "my-*" endpoint 404s with "Tenant record not found for this user".
+- Migration history quirks: see `tenants.md` for the full Phase 1–5 breakdown of `supabase_tenants_migration.sql`; `auth_user_id` specifically is part of that file's base table definition, not a numbered "Phase".
+
+## Key patterns / architecture notes
+- Architectural split from the admin side: admin `tenants` feature (`frontend/lib/features/tenants/`) talks directly to Supabase; tenant-portal `tenant` feature (`frontend/lib/features/tenant/`) talks only through the backend API with the `user_id`-query-param pattern. Don't assume symmetry between the two — they use different repositories, different auth models, and mostly different files (both happen to read/write the same `tenants` table, though).
+- `TenantProvider` is a bare `ChangeNotifier`, not the app's `BaseProvider` used elsewhere (e.g. `TenantsProvider` in the admin feature) — no shared `isLoading`/`hasError` conventions here; it rolls its own `isLoading`/`error` fields.
+- `getMyUnit()` failures are deliberately swallowed in `TenantProvider.loadAll()` via `.catchError((_) => <String, dynamic>{})` — a tenant with no unit linked still loads the rest of the dashboard.
+- Service request approval flow: `service_requests.py` computes `approval_required_from` (via `_approver_for`/`_with_approval` helpers) based on who's paying (`expenses_borne_by`); the tenant-facing UI only shows Approve/Review/Decline buttons when `approval_required_from == 'Tenant'`.
+- Payment: `startPayment` hardcodes `successUrl`/`cancelUrl` to `http://localhost:3000/tenant/invoices?...` in `tenant_provider.dart` (line ~136) — this looks like a dev-only placeholder, not the production Firebase Hosting URL; worth checking before relying on Stripe redirect behavior in production.
+
+## Known Issues
+- Service-request document upload/download/delete endpoints (`service_requests.py`) have no `user_id`/ownership check, unlike every other tenant-portal endpoint — see Auth pattern note above.
+- `startPayment`'s success/cancel URLs are hardcoded to `localhost:3000`, not derived from the app's actual deployed origin — likely broken in production Stripe redirects. Re-verify against the live Stripe flow before assuming this is intentional.
+- No known dialog-context/`Navigator.pop` bugs found in this feature's own files (`tenant_maintenance_screen.dart`, `tenant_messages_screen.dart`, `tenant_services_screen.dart` all correctly use a dialog-local `ctx`/`dialogContext`-style builder param in their `showDialog` calls, e.g. `builder: (ctx) => ...` with `Navigator.pop(ctx, ...)`). This is unlike the admin `tenants.md` Delete Tenant/Property dialogs — re-verify before assuming, this codebase has had reverts.
+
+## Related features
+- `tenants.md` — admin CRUD for the same `tenants` table; `auth_user_id` is the link between a `tenants` row and this portal's signed-in user.
+- `properties.md` (if present) — `leasing_units`/`area_entries` referenced by `GET /my-unit`.

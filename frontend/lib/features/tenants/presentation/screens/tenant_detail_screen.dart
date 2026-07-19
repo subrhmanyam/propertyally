@@ -7,9 +7,13 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../properties/domain/entities/leasing_unit.dart';
+import '../../../properties/presentation/providers/leasing_provider.dart';
 import '../../../properties/presentation/widgets/unit_agreement_dialog.dart';
 import '../../domain/entities/tenant.dart';
 import '../providers/tenants_provider.dart';
+import '../widgets/lease_form_dialog.dart';
+import '../widgets/tenant_form_dialog.dart';
 
 class TenantDetailScreen extends StatefulWidget {
   const TenantDetailScreen({super.key, required this.tenantId});
@@ -26,7 +30,56 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TenantsProvider>().loadTenant(widget.tenantId);
+      context.read<LeasingProvider>().load();
     });
+  }
+
+  Future<void> _openAddLease() async {
+    final data = await showLeaseForm(context);
+    if (data == null || !mounted) return;
+    final tp = context.read<TenantsProvider>();
+    await tp.addLease(widget.tenantId, data);
+    if (mounted && tp.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not add lease: ${tp.errorMessage}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openEditLease(Lease lease) async {
+    final data = await showLeaseForm(context, existingLease: lease);
+    if (data == null || !mounted) return;
+    final tp = context.read<TenantsProvider>();
+    await tp.updateLease(lease.id, data);
+    if (mounted && tp.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not update lease: ${tp.errorMessage}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openEditTenant(Tenant tenant) async {
+    final lp = context.read<LeasingProvider>();
+    if (lp.units.isEmpty) await lp.load();
+    if (!mounted || lp.units.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No properties found to edit against.')),
+        );
+      }
+      return;
+    }
+    final LeasingUnit preselected =
+        lp.units.where((u) => u.id == tenant.unitId).firstOrNull ??
+            lp.units.first;
+    await editTenant(context,
+        units: lp.units, preselectedUnit: preselected, existingTenant: tenant);
   }
 
   @override
@@ -57,14 +110,23 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                 const SizedBox(height: AppDimensions.spaceLG),
 
                 // ── Profile header ───────────────────────────────────
-                _TenantHeader(tenant: tenant),
+                _TenantHeader(
+                    tenant: tenant, onEdit: () => _openEditTenant(tenant)),
 
                 const SizedBox(height: AppDimensions.spaceLG),
 
                 // ── Content grid ─────────────────────────────────────
                 isMobile
-                    ? _MobileLayout(tenant: tenant, lease: lease)
-                    : _DesktopLayout(tenant: tenant, lease: lease),
+                    ? _MobileLayout(
+                        tenant: tenant,
+                        lease: lease,
+                        onAddLease: _openAddLease,
+                        onEditLease: _openEditLease)
+                    : _DesktopLayout(
+                        tenant: tenant,
+                        lease: lease,
+                        onAddLease: _openAddLease,
+                        onEditLease: _openEditLease),
               ],
             ),
           ),
@@ -84,10 +146,12 @@ class _BackRow extends StatelessWidget {
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.chevron_left, size: AppDimensions.iconMD, color: AppColors.textMuted),
+          Icon(Icons.chevron_left,
+              size: AppDimensions.iconMD, color: AppColors.textMuted),
           Text(
             AppStrings.tenants,
-            style: TextStyle(fontSize: AppDimensions.fontBase, color: AppColors.textMuted),
+            style: TextStyle(
+                fontSize: AppDimensions.fontBase, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -98,9 +162,10 @@ class _BackRow extends StatelessWidget {
 // ── Profile header ────────────────────────────────────────────────────
 
 class _TenantHeader extends StatelessWidget {
-  const _TenantHeader({required this.tenant});
+  const _TenantHeader({required this.tenant, required this.onEdit});
 
   final Tenant tenant;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +220,8 @@ class _TenantHeader extends StatelessWidget {
                 const SizedBox(height: AppDimensions.spaceXS),
                 Row(
                   children: [
-                    const Icon(Icons.mail_outline, size: AppDimensions.iconSM, color: AppColors.textMuted),
+                    const Icon(Icons.mail_outline,
+                        size: AppDimensions.iconSM, color: AppColors.textMuted),
                     const SizedBox(width: AppDimensions.spaceXS),
                     Text(
                       tenant.email,
@@ -165,7 +231,8 @@ class _TenantHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppDimensions.spaceLG),
-                    const Icon(Icons.phone_outlined, size: AppDimensions.iconSM, color: AppColors.textMuted),
+                    const Icon(Icons.phone_outlined,
+                        size: AppDimensions.iconSM, color: AppColors.textMuted),
                     const SizedBox(width: AppDimensions.spaceXS),
                     Text(
                       tenant.phone,
@@ -186,7 +253,7 @@ class _TenantHeader extends StatelessWidget {
             variant: AppButtonVariant.secondary,
             icon: Icons.edit_outlined,
             small: true,
-            onPressed: () {},
+            onPressed: onEdit,
           ),
         ],
       ),
@@ -197,10 +264,17 @@ class _TenantHeader extends StatelessWidget {
 // ── Layout helpers ────────────────────────────────────────────────────
 
 class _DesktopLayout extends StatelessWidget {
-  const _DesktopLayout({required this.tenant, required this.lease});
+  const _DesktopLayout({
+    required this.tenant,
+    required this.lease,
+    required this.onAddLease,
+    required this.onEditLease,
+  });
 
   final Tenant tenant;
   final Lease? lease;
+  final VoidCallback onAddLease;
+  final ValueChanged<Lease> onEditLease;
 
   @override
   Widget build(BuildContext context) {
@@ -227,7 +301,9 @@ class _DesktopLayout extends StatelessWidget {
           flex: 7,
           child: Column(
             children: [
-              lease != null ? _LeaseCard(lease: lease!) : const _NoLeaseCard(),
+              lease != null
+                  ? _LeaseCard(lease: lease!, onEdit: () => onEditLease(lease!))
+                  : _NoLeaseCard(onAddLease: onAddLease),
               const SizedBox(height: AppDimensions.spaceMD),
               _AgreementCard(tenant: tenant),
             ],
@@ -239,16 +315,26 @@ class _DesktopLayout extends StatelessWidget {
 }
 
 class _MobileLayout extends StatelessWidget {
-  const _MobileLayout({required this.tenant, required this.lease});
+  const _MobileLayout({
+    required this.tenant,
+    required this.lease,
+    required this.onAddLease,
+    required this.onEditLease,
+  });
 
   final Tenant tenant;
   final Lease? lease;
+  final VoidCallback onAddLease;
+  final ValueChanged<Lease> onEditLease;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (lease != null) _LeaseCard(lease: lease!),
+        if (lease != null)
+          _LeaseCard(lease: lease!, onEdit: () => onEditLease(lease!))
+        else
+          _NoLeaseCard(onAddLease: onAddLease),
         const SizedBox(height: AppDimensions.spaceMD),
         _AgreementCard(tenant: tenant),
         const SizedBox(height: AppDimensions.spaceMD),
@@ -301,18 +387,22 @@ class _EmergencyCard extends StatelessWidget {
       icon: Icons.emergency_outlined,
       rows: [
         if (tenant.emergencyContactName != null)
-          _DetailRow(label: AppStrings.tenantName, value: tenant.emergencyContactName!),
+          _DetailRow(
+              label: AppStrings.tenantName,
+              value: tenant.emergencyContactName!),
         if (tenant.emergencyContactPhone != null)
-          _DetailRow(label: AppStrings.phone, value: tenant.emergencyContactPhone!),
+          _DetailRow(
+              label: AppStrings.phone, value: tenant.emergencyContactPhone!),
       ],
     );
   }
 }
 
 class _LeaseCard extends StatelessWidget {
-  const _LeaseCard({required this.lease});
+  const _LeaseCard({required this.lease, required this.onEdit});
 
   final Lease lease;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -326,14 +416,31 @@ class _LeaseCard extends StatelessWidget {
     return _SectionCard(
       title: AppStrings.leaseInfo,
       icon: Icons.description_outlined,
-      headerTrailing: _LeaseStatusChip(
-        isExpired: isExpired,
-        isExpiring: isExpiring,
-        status: lease.status,
+      headerTrailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LeaseStatusChip(
+            isExpired: isExpired,
+            isExpiring: isExpiring,
+            status: lease.status,
+          ),
+          const SizedBox(width: AppDimensions.spaceSM),
+          Tooltip(
+            message: 'Edit lease',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onEdit,
+              child: const Icon(Icons.edit_outlined,
+                  size: AppDimensions.iconSM, color: AppColors.textMuted),
+            ),
+          ),
+        ],
       ),
       rows: [
-        _DetailRow(label: AppStrings.leaseStart, value: fmt.format(lease.startDate)),
-        _DetailRow(label: AppStrings.leaseEnd, value: fmt.format(lease.endDate)),
+        _DetailRow(
+            label: AppStrings.leaseStart, value: fmt.format(lease.startDate)),
+        _DetailRow(
+            label: AppStrings.leaseEnd, value: fmt.format(lease.endDate)),
         _DetailRow(
           label: AppStrings.monthlyRent,
           value: currency.format(lease.monthlyRent),
@@ -354,7 +461,9 @@ class _LeaseCard extends StatelessWidget {
 }
 
 class _NoLeaseCard extends StatelessWidget {
-  const _NoLeaseCard();
+  const _NoLeaseCard({required this.onAddLease});
+
+  final VoidCallback onAddLease;
 
   @override
   Widget build(BuildContext context) {
@@ -391,7 +500,7 @@ class _NoLeaseCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppDimensions.spaceLG),
-          AppButton(label: 'Add Lease', icon: Icons.add, onPressed: () {}),
+          AppButton(label: 'Add Lease', icon: Icons.add, onPressed: onAddLease),
         ],
       ),
     );
@@ -490,7 +599,8 @@ class _SectionCard extends StatelessWidget {
             padding: const EdgeInsets.all(AppDimensions.spaceMD),
             child: Row(
               children: [
-                Icon(icon, size: AppDimensions.iconMD, color: AppColors.accentGreen),
+                Icon(icon,
+                    size: AppDimensions.iconMD, color: AppColors.accentGreen),
                 const SizedBox(width: AppDimensions.spaceSM),
                 Text(
                   title,
@@ -587,7 +697,11 @@ class _LeaseStatusChip extends StatelessWidget {
     final (bg, textColor, label) = isExpired
         ? (AppColors.error.withValues(alpha: 0.12), AppColors.error, 'Expired')
         : isExpiring
-            ? (AppColors.warning.withValues(alpha: 0.12), AppColors.warning, 'Expiring Soon')
+            ? (
+                AppColors.warning.withValues(alpha: 0.12),
+                AppColors.warning,
+                'Expiring Soon'
+              )
             : (AppColors.occupiedBg, AppColors.occupiedText, 'Active');
 
     return Container(

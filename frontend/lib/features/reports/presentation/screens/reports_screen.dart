@@ -8,7 +8,8 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../domain/entities/report_data.dart';
 import '../providers/reports_provider.dart';
 
-final _inr = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+final _inr =
+    NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
@@ -60,9 +61,21 @@ class _ReportsBody extends StatelessWidget {
                   children: [
                     for (final entry in [
                       (ReportTab.occupancy, Icons.domain_rounded, 'Occupancy'),
-                      (ReportTab.cashFlow, Icons.trending_up_rounded, 'Cash Flow'),
-                      (ReportTab.rentCollection, Icons.receipt_long_rounded, 'Rent'),
-                      (ReportTab.maintenanceCosts, Icons.build_rounded, 'Maintenance'),
+                      (
+                        ReportTab.cashFlow,
+                        Icons.trending_up_rounded,
+                        'Cash Flow'
+                      ),
+                      (
+                        ReportTab.rentCollection,
+                        Icons.receipt_long_rounded,
+                        'Rent'
+                      ),
+                      (
+                        ReportTab.maintenanceCosts,
+                        Icons.build_rounded,
+                        'Maintenance'
+                      ),
                       (ReportTab.profitLoss, Icons.bar_chart_rounded, 'P&L'),
                     ])
                       _TabChip(
@@ -78,7 +91,9 @@ class _ReportsBody extends StatelessWidget {
 
               if (p.isLoading)
                 const Expanded(
-                  child: Center(child: CircularProgressIndicator(color: AppColors.accentGold)),
+                  child: Center(
+                      child: CircularProgressIndicator(
+                          color: AppColors.accentGold)),
                 )
               else if (p.hasError)
                 Expanded(
@@ -86,12 +101,14 @@ class _ReportsBody extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline, color: AppColors.error, size: 36),
+                        const Icon(Icons.error_outline,
+                            color: AppColors.error, size: 36),
                         const SizedBox(height: 12),
                         Text(p.errorMessage ?? 'Error loading report',
                             style: const TextStyle(color: AppColors.error)),
                         const SizedBox(height: 12),
-                        TextButton(onPressed: p.refresh, child: const Text('Retry')),
+                        TextButton(
+                            onPressed: p.refresh, child: const Text('Retry')),
                       ],
                     ),
                   ),
@@ -289,11 +306,15 @@ class _OccupancyTab extends StatelessWidget {
           return wide
               ? Row(
                   children: cards
-                      .map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 12), child: c)))
+                      .map((c) => Expanded(
+                          child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: c)))
                       .toList())
               : Column(
                   children: cards
-                      .map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c))
+                      .map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12), child: c))
                       .toList());
         }),
         const SizedBox(height: AppDimensions.spaceXL),
@@ -303,7 +324,8 @@ class _OccupancyTab extends StatelessWidget {
           const _SectionHeader('By Category'),
           _HorizontalBarSection(
             items: report.byCategory
-                .map((b) => _BarItem(b.label, b.occupied.toDouble(), b.total.toDouble()))
+                .map((b) => _BarItem(
+                    b.label, b.occupied.toDouble(), b.total.toDouble()))
                 .toList(),
           ),
           const SizedBox(height: AppDimensions.spaceXL),
@@ -315,7 +337,8 @@ class _OccupancyTab extends StatelessWidget {
           _SimpleTable(
             columns: const ['Floor', 'Total', 'Occupied', 'Vacant'],
             rows: report.byFloor
-                .map((f) => [f.label, '${f.total}', '${f.occupied}', '${f.vacant}'])
+                .map((f) =>
+                    [f.label, '${f.total}', '${f.occupied}', '${f.vacant}'])
                 .toList(),
           ),
         ],
@@ -333,8 +356,7 @@ class _CashFlowTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxVal = report.months.fold<double>(
-        0,
-        (m, e) => [m, e.income, e.expenses].reduce((a, b) => a > b ? a : b));
+        0, (m, e) => [m, e.income, e.expenses].reduce((a, b) => a > b ? a : b));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,15 +386,18 @@ class _CashFlowTab extends StatelessWidget {
           return wide
               ? Row(
                   children: cards
-                      .map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 12), child: c)))
+                      .map((c) => Expanded(
+                          child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: c)))
                       .toList())
               : Column(
                   children: cards
-                      .map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c))
+                      .map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12), child: c))
                       .toList());
         }),
         const SizedBox(height: AppDimensions.spaceXL),
-
         const _SectionHeader('Monthly Income vs Expenses'),
         if (report.months.isNotEmpty && maxVal > 0)
           SizedBox(
@@ -382,16 +407,21 @@ class _CashFlowTab extends StatelessWidget {
                 maxY: maxVal * 1.2,
                 barTouchData: BarTouchData(enabled: false),
                 titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       getTitlesWidget: (v, _) {
                         final i = v.toInt();
-                        if (i < 0 || i >= report.months.length) return const SizedBox.shrink();
-                        if (report.months.length > 6 && i % 2 != 0) return const SizedBox.shrink();
+                        if (i < 0 || i >= report.months.length)
+                          return const SizedBox.shrink();
+                        if (report.months.length > 6 && i % 2 != 0)
+                          return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(report.months[i].label,
@@ -405,17 +435,23 @@ class _CashFlowTab extends StatelessWidget {
                 ),
                 gridData: FlGridData(
                   show: true,
-                  getDrawingHorizontalLine: (_) => const FlLine(
-                      color: AppColors.border, strokeWidth: 0.5),
+                  getDrawingHorizontalLine: (_) =>
+                      const FlLine(color: AppColors.border, strokeWidth: 0.5),
                   drawVerticalLine: false,
                 ),
                 borderData: FlBorderData(show: false),
                 barGroups: report.months.asMap().entries.map((e) {
                   return BarChartGroupData(x: e.key, barRods: [
                     BarChartRodData(
-                        toY: e.value.income, color: AppColors.success, width: 6, borderRadius: BorderRadius.circular(2)),
+                        toY: e.value.income,
+                        color: AppColors.success,
+                        width: 6,
+                        borderRadius: BorderRadius.circular(2)),
                     BarChartRodData(
-                        toY: e.value.expenses, color: AppColors.error, width: 6, borderRadius: BorderRadius.circular(2)),
+                        toY: e.value.expenses,
+                        color: AppColors.error,
+                        width: 6,
+                        borderRadius: BorderRadius.circular(2)),
                   ]);
                 }).toList(),
               ),
@@ -423,7 +459,6 @@ class _CashFlowTab extends StatelessWidget {
           )
         else
           const _EmptyChart(),
-
         const SizedBox(height: 8),
         Row(children: [
           _Legend(color: AppColors.success, label: 'Income'),
@@ -431,16 +466,18 @@ class _CashFlowTab extends StatelessWidget {
           _Legend(color: AppColors.error, label: 'Expenses'),
         ]),
         const SizedBox(height: AppDimensions.spaceXL),
-
         const _SectionHeader('Monthly Breakdown'),
         _SimpleTable(
           columns: const ['Month', 'Income', 'Expenses', 'Net'],
-          rows: report.months.reversed.take(6).map((m) => [
-            m.label,
-            _inr.format(m.income),
-            _inr.format(m.expenses),
-            _inr.format(m.net),
-          ]).toList(),
+          rows: report.months.reversed
+              .take(6)
+              .map((m) => [
+                    m.label,
+                    _inr.format(m.income),
+                    _inr.format(m.expenses),
+                    _inr.format(m.net),
+                  ])
+              .toList(),
         ),
       ],
     );
@@ -489,25 +526,30 @@ class _RentCollectionTab extends StatelessWidget {
           return wide
               ? Row(
                   children: cards
-                      .map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 12), child: c)))
+                      .map((c) => Expanded(
+                          child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: c)))
                       .toList())
               : Column(
                   children: cards
-                      .map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c))
+                      .map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12), child: c))
                       .toList());
         }),
         const SizedBox(height: AppDimensions.spaceXL),
-
         if (report.byUnit.isNotEmpty) ...[
           const _SectionHeader('By Unit'),
           _SimpleTable(
             columns: const ['Unit', 'Collected', 'Pending', 'Overdue'],
-            rows: report.byUnit.map((u) => [
-              u.unitName,
-              _inr.format(u.collected),
-              u.pending > 0 ? _inr.format(u.pending) : '—',
-              u.overdue > 0 ? _inr.format(u.overdue) : '—',
-            ]).toList(),
+            rows: report.byUnit
+                .map((u) => [
+                      u.unitName,
+                      _inr.format(u.collected),
+                      u.pending > 0 ? _inr.format(u.pending) : '—',
+                      u.overdue > 0 ? _inr.format(u.overdue) : '—',
+                    ])
+                .toList(),
           ),
         ] else
           const Center(
@@ -566,35 +608,41 @@ class _MaintenanceCostTab extends StatelessWidget {
           return wide
               ? Row(
                   children: cards
-                      .map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 12), child: c)))
+                      .map((c) => Expanded(
+                          child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: c)))
                       .toList())
               : Column(
                   children: cards
-                      .map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c))
+                      .map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12), child: c))
                       .toList());
         }),
         const SizedBox(height: AppDimensions.spaceXL),
-
         if (report.byCategory.isNotEmpty) ...[
           const _SectionHeader('Cost by Category'),
           _HorizontalBarSection(
             items: report.byCategory
-                .map((c) => _BarItem(c.category, c.actualCost, report.totalActualCost))
+                .map((c) =>
+                    _BarItem(c.category, c.actualCost, report.totalActualCost))
                 .toList(),
             formatValue: (v) => _inr.format(v),
           ),
           const SizedBox(height: AppDimensions.spaceXL),
         ],
-
         if (report.byUnit.isNotEmpty) ...[
           const _SectionHeader('By Unit'),
           _SimpleTable(
             columns: const ['Unit', 'Requests', 'Total Cost'],
-            rows: report.byUnit.take(10).map((u) => [
-              u.unitName,
-              '${u.count}',
-              _inr.format(u.actualCost),
-            ]).toList(),
+            rows: report.byUnit
+                .take(10)
+                .map((u) => [
+                      u.unitName,
+                      '${u.count}',
+                      _inr.format(u.actualCost),
+                    ])
+                .toList(),
           ),
         ],
       ],
@@ -611,8 +659,7 @@ class _ProfitLossTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxVal = report.byMonth.fold<double>(
-        0,
-        (m, e) => [m, e.income, e.expenses].reduce((a, b) => a > b ? a : b));
+        0, (m, e) => [m, e.income, e.expenses].reduce((a, b) => a > b ? a : b));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,7 +682,8 @@ class _ProfitLossTab extends StatelessWidget {
             _KpiCard(
               label: 'Net Profit',
               value: _inr.format(report.netProfit),
-              valueColor: report.netProfit >= 0 ? AppColors.success : AppColors.error,
+              valueColor:
+                  report.netProfit >= 0 ? AppColors.success : AppColors.error,
               icon: Icons.account_balance_rounded,
             ),
             _KpiCard(
@@ -648,15 +696,18 @@ class _ProfitLossTab extends StatelessWidget {
           return wide
               ? Row(
                   children: cards
-                      .map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 12), child: c)))
+                      .map((c) => Expanded(
+                          child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: c)))
                       .toList())
               : Column(
                   children: cards
-                      .map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c))
+                      .map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12), child: c))
                       .toList());
         }),
         const SizedBox(height: AppDimensions.spaceXL),
-
         const _SectionHeader('Monthly P&L'),
         if (report.byMonth.isNotEmpty && maxVal > 0)
           SizedBox(
@@ -666,20 +717,26 @@ class _ProfitLossTab extends StatelessWidget {
                 maxY: maxVal * 1.2,
                 barTouchData: BarTouchData(enabled: false),
                 titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       getTitlesWidget: (v, _) {
                         final i = v.toInt();
-                        if (i < 0 || i >= report.byMonth.length) return const SizedBox.shrink();
-                        if (report.byMonth.length > 6 && i % 2 != 0) return const SizedBox.shrink();
+                        if (i < 0 || i >= report.byMonth.length)
+                          return const SizedBox.shrink();
+                        if (report.byMonth.length > 6 && i % 2 != 0)
+                          return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(report.byMonth[i].label,
-                              style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
+                              style: const TextStyle(
+                                  fontSize: 9, color: AppColors.textMuted)),
                         );
                       },
                       reservedSize: 24,
@@ -712,7 +769,6 @@ class _ProfitLossTab extends StatelessWidget {
           )
         else
           const _EmptyChart(),
-
         const SizedBox(height: 8),
         Row(children: [
           _Legend(color: AppColors.success, label: 'Income'),
@@ -720,17 +776,19 @@ class _ProfitLossTab extends StatelessWidget {
           _Legend(color: AppColors.error, label: 'Expenses'),
         ]),
         const SizedBox(height: AppDimensions.spaceXL),
-
         if (report.byUnit.isNotEmpty) ...[
           const _SectionHeader('P&L by Unit'),
           _SimpleTable(
             columns: const ['Unit', 'Income', 'Expenses', 'Net Profit'],
-            rows: report.byUnit.take(15).map((u) => [
-              u.unitName,
-              _inr.format(u.income),
-              _inr.format(u.expenses),
-              _inr.format(u.netProfit),
-            ]).toList(),
+            rows: report.byUnit
+                .take(15)
+                .map((u) => [
+                      u.unitName,
+                      _inr.format(u.income),
+                      _inr.format(u.expenses),
+                      _inr.format(u.netProfit),
+                    ])
+                .toList(),
           ),
         ],
       ],
@@ -771,7 +829,8 @@ class _HorizontalBarSection extends StatelessWidget {
             decoration: isLast
                 ? null
                 : const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.border))),
+                    border:
+                        Border(bottom: BorderSide(color: AppColors.border))),
             child: Row(
               children: [
                 SizedBox(
@@ -870,14 +929,14 @@ class _SimpleTable extends StatelessWidget {
               decoration: isLast
                   ? null
                   : const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: AppColors.border))),
+                      border:
+                          Border(bottom: BorderSide(color: AppColors.border))),
               child: Row(
                 children: e.value
                     .map((cell) => Expanded(
                           child: Text(cell,
                               style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textPrimary)),
+                                  fontSize: 12, color: AppColors.textPrimary)),
                         ))
                     .toList(),
               ),

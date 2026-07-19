@@ -7,12 +7,18 @@ class PlatformStatusStrip extends StatelessWidget {
 
   final List<PlatformPost> posts;
 
-  static const _knownPlatforms = ['housing_com', '99acres', 'magicbricks', 'nobroker'];
+  static const _knownPlatforms = [
+    'housing_com',
+    '99acres',
+    'magicbricks',
+    'nobroker'
+  ];
 
   @override
   Widget build(BuildContext context) {
     if (posts.isEmpty) {
-      return const Text('Not published', style: TextStyle(fontSize: 11, color: AppColors.textMuted));
+      return const Text('Not published',
+          style: TextStyle(fontSize: 11, color: AppColors.textMuted));
     }
     final byKey = {for (final p in posts) p.platformKey: p};
     return Row(

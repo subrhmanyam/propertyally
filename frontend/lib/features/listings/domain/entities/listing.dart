@@ -32,7 +32,9 @@ class PlatformPost {
         id: json['id']?.toString() ?? '',
         listingId: json['listing_id']?.toString() ?? '',
         platformKey: json['platform_key']?.toString() ?? '',
-        platformName: json['platform_name']?.toString() ?? json['platform_key']?.toString() ?? '',
+        platformName: json['platform_name']?.toString() ??
+            json['platform_key']?.toString() ??
+            '',
         status: json['status']?.toString() ?? 'pending',
         externalId: json['external_id']?.toString(),
         externalUrl: json['external_url']?.toString(),
@@ -80,11 +82,15 @@ class Listing {
   final List<PlatformPost> platformPosts;
   final DateTime? createdAt;
 
-  int get postedCount => platformPosts.where((p) => p.status == 'posted').length;
-  int get manualCount => platformPosts.where((p) => p.status == 'manual_required').length;
-  int get failedCount => platformPosts.where((p) => p.status == 'failed').length;
-  int get pendingCount =>
-      platformPosts.where((p) => p.status == 'pending' || p.status == 'posting').length;
+  int get postedCount =>
+      platformPosts.where((p) => p.status == 'posted').length;
+  int get manualCount =>
+      platformPosts.where((p) => p.status == 'manual_required').length;
+  int get failedCount =>
+      platformPosts.where((p) => p.status == 'failed').length;
+  int get pendingCount => platformPosts
+      .where((p) => p.status == 'pending' || p.status == 'posting')
+      .length;
 
   factory Listing.fromJson(Map<String, dynamic> json) => Listing(
         id: json['id']?.toString() ?? '',

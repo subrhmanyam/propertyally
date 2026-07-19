@@ -60,25 +60,33 @@ class _PlatformPickerDialogState extends State<PlatformPickerDialog> {
       backgroundColor: AppColors.cardBg,
       title: const Text(
         'Choose Platforms',
-        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+        style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textHeading),
       ),
       content: SizedBox(
         width: 340,
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.accentGold))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.accentGold))
             : _error != null
-                ? Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.error))
+                ? Text(_error!,
+                    style:
+                        const TextStyle(fontSize: 12, color: AppColors.error))
                 : _platforms.isEmpty
                     ? const Text(
                         'No platforms available for this property type.',
-                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style:
+                            TextStyle(fontSize: 12, color: AppColors.textMuted),
                       )
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
                             'Select the platforms to publish this listing to:',
-                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.textMuted),
                           ),
                           const SizedBox(height: 12),
                           ..._platforms.map((p) {
@@ -96,12 +104,15 @@ class _PlatformPickerDialogState extends State<PlatformPickerDialog> {
                               }),
                               title: Text(
                                 name,
-                                style: const TextStyle(fontSize: 13, color: AppColors.textHeading),
+                                style: const TextStyle(
+                                    fontSize: 13, color: AppColors.textHeading),
                               ),
                               subtitle: isManual
                                   ? const Text(
                                       'Manual posting — content will be generated for you to copy',
-                                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textMuted),
                                     )
                                   : null,
                               activeColor: AppColors.accentGold,
@@ -116,7 +127,8 @@ class _PlatformPickerDialogState extends State<PlatformPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          child: const Text('Cancel',
+              style: TextStyle(color: AppColors.textMuted)),
         ),
         TextButton(
           onPressed: _selected.isEmpty
@@ -125,7 +137,9 @@ class _PlatformPickerDialogState extends State<PlatformPickerDialog> {
           child: Text(
             'Publish to ${_selected.length} Platform${_selected.length == 1 ? '' : 's'}',
             style: TextStyle(
-              color: _selected.isEmpty ? AppColors.textMuted : AppColors.accentGold,
+              color: _selected.isEmpty
+                  ? AppColors.textMuted
+                  : AppColors.accentGold,
               fontWeight: FontWeight.w600,
             ),
           ),

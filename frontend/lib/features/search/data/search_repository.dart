@@ -38,7 +38,8 @@ class SearchRepository {
     final results = <SearchResult>[];
     for (final key in ['properties', 'tenants', 'maintenance']) {
       final list = data[key] as List? ?? [];
-      results.addAll(list.map((e) => SearchResult.fromJson(e as Map<String, dynamic>)));
+      results.addAll(
+          list.map((e) => SearchResult.fromJson(e as Map<String, dynamic>)));
     }
     return results;
   }

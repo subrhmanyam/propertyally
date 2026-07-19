@@ -94,8 +94,7 @@ class Tenant {
         propertyId: json['leasing_unit_id']?.toString(),
         companyName: json['company_name']?.toString(),
         floor: json['floor']?.toString(),
-        moveInDate:
-            DateTime.tryParse(json['move_in_date']?.toString() ?? ''),
+        moveInDate: DateTime.tryParse(json['move_in_date']?.toString() ?? ''),
         emergencyContactName: json['emergency_contact_name']?.toString(),
         emergencyContactPhone: json['emergency_contact_phone']?.toString(),
       );
@@ -115,17 +114,41 @@ class Tenant {
           'emergency_contact_phone': emergencyContactPhone,
       };
 
-  static final List<Tenant> mockList = List.generate(10, (i) => Tenant(
-        id: 'tenant_$i',
-        firstName: ['John', 'Jane', 'Mike', 'Sarah', 'Chris', 'Lisa', 'Tom', 'Amy', 'Bob', 'Emma'][i],
-        lastName: ['Smith', 'Doe', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Martinez', 'Lee', 'Wilson'][i],
-        email: 'tenant$i@example.com',
-        phone: '555-01${i.toString().padLeft(2, '0')}',
-        status: i % 4 == 0 ? 'pending' : 'active',
-        unitId: 'unit_$i',
-        propertyId: 'prop_${i % 6}',
-        moveInDate: DateTime(2022, 1 + i % 12, 1),
-        emergencyContactName: 'Emergency Contact $i',
-        emergencyContactPhone: '555-99${i.toString().padLeft(2, '0')}',
-      ));
+  static final List<Tenant> mockList = List.generate(
+      10,
+      (i) => Tenant(
+            id: 'tenant_$i',
+            firstName: [
+              'John',
+              'Jane',
+              'Mike',
+              'Sarah',
+              'Chris',
+              'Lisa',
+              'Tom',
+              'Amy',
+              'Bob',
+              'Emma'
+            ][i],
+            lastName: [
+              'Smith',
+              'Doe',
+              'Johnson',
+              'Williams',
+              'Brown',
+              'Jones',
+              'Garcia',
+              'Martinez',
+              'Lee',
+              'Wilson'
+            ][i],
+            email: 'tenant$i@example.com',
+            phone: '555-01${i.toString().padLeft(2, '0')}',
+            status: i % 4 == 0 ? 'pending' : 'active',
+            unitId: 'unit_$i',
+            propertyId: 'prop_${i % 6}',
+            moveInDate: DateTime(2022, 1 + i % 12, 1),
+            emergencyContactName: 'Emergency Contact $i',
+            emergencyContactPhone: '555-99${i.toString().padLeft(2, '0')}',
+          ));
 }

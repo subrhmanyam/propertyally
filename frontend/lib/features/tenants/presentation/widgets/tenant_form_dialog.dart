@@ -1,19 +1,95 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../properties/domain/entities/leasing_unit.dart';
+import '../../../properties/presentation/providers/leasing_provider.dart';
 import '../../../properties/presentation/widgets/leasing_form_dialog.dart';
+import '../../domain/entities/tenant.dart';
+import '../providers/tenants_provider.dart';
 
-/// Opens the add-tenant form as a dialog (desktop) or bottom sheet (mobile).
-/// Returns a Map ready to POST to the tenants API, or null on cancel.
+/// The single "edit a tenant" flow for the whole app — opens the form,
+/// saves it, and handles the standard side effects (marking the property
+/// occupied on first add, refreshing tenant-detail state, surfacing
+/// errors). Both the property-level tenant view (`/tenants`) and the named
+/// tenant's own page (`/tenants/:id`) call this instead of each keeping
+/// their own copy of the save logic.
+Future<void> editTenant(
+  BuildContext context, {
+  required List<LeasingUnit> units,
+  required LeasingUnit preselectedUnit,
+  Tenant? existingTenant,
+}) async {
+  final data = await showTenantForm(
+    context,
+    units: units,
+    preselectedUnit: preselectedUnit,
+    existingTenant: existingTenant,
+  );
+  if (data == null || !context.mounted) return;
+
+  final tp = context.read<TenantsProvider>();
+
+  if (existingTenant != null) {
+    await tp.updateTenant(existingTenant.id, data);
+    if (context.mounted) await tp.loadTenant(existingTenant.id);
+    if (context.mounted && tp.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not update tenant: ${tp.errorMessage}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+    return;
+  }
+
+  final tenant = await tp.createTenant(data);
+  if (tenant == null) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Could not add tenant: ${tp.errorMessage ?? 'unknown error'}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+    return;
+  }
+  if (context.mounted) {
+    await markPropertyOccupiedIfVacant(context, tenant.unitId);
+  }
+}
+
+/// A property is "vacant" until it has an occupant — adding or assigning a
+/// tenant contact to it means it no longer is, so flip the status
+/// automatically rather than leaving the admin to do it by hand. Shared by
+/// [editTenant] and the "assign an unassigned tenant to a property" flow.
+Future<void> markPropertyOccupiedIfVacant(
+    BuildContext context, String? unitId) async {
+  if (unitId == null || unitId.isEmpty) return;
+  final lp = context.read<LeasingProvider>();
+  final unit = lp.units.where((u) => u.id == unitId).firstOrNull;
+  if (unit == null) return;
+  const alreadyOccupied = {'occupied', 'in_house', 'owner_occupied'};
+  if (alreadyOccupied.contains(unit.status)) return;
+  await lp.update(unit.copyWith(status: 'occupied'));
+}
+
+/// Opens the tenant-details form as a dialog (desktop) or bottom sheet
+/// (mobile). Returns a Map ready to POST/PATCH to the tenants API, or null
+/// on cancel. Pass [existingTenant] to edit it (form opens pre-filled);
+/// omit it to create a new one (form opens blank).
 Future<Map<String, dynamic>?> showTenantForm(
   BuildContext context, {
   required List<LeasingUnit> units,
   LeasingUnit? preselectedUnit,
+  Tenant? existingTenant,
 }) {
   if (units.isEmpty) return Future.value(null);
   final defaultUnit = preselectedUnit ?? units.first;
@@ -24,7 +100,10 @@ Future<Map<String, dynamic>?> showTenantForm(
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _TenantFormSheet(units: units, defaultUnit: defaultUnit),
+      builder: (_) => _TenantFormSheet(
+          units: units,
+          defaultUnit: defaultUnit,
+          existingTenant: existingTenant),
     );
   }
   return showDialog<Map<String, dynamic>>(
@@ -34,7 +113,10 @@ Future<Map<String, dynamic>?> showTenantForm(
     builder: (_) => Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 80, vertical: 40),
-      child: _TenantFormSheet(units: units, defaultUnit: defaultUnit),
+      child: _TenantFormSheet(
+          units: units,
+          defaultUnit: defaultUnit,
+          existingTenant: existingTenant),
     ),
   );
 }
@@ -42,7 +124,10 @@ Future<Map<String, dynamic>?> showTenantForm(
 // ── Draft ─────────────────────────────────────────────────────────────
 
 class _Draft {
-  _Draft({required this.unitId, required this.businessType, required List<String> floors})
+  _Draft(
+      {required this.unitId,
+      required this.businessType,
+      required List<String> floors})
       : status = 'active',
         moveInDate = DateTime.now(),
         areas = [AreaEntryDraft()],
@@ -61,10 +146,15 @@ class _Draft {
 // ── Form sheet ────────────────────────────────────────────────────────
 
 class _TenantFormSheet extends StatefulWidget {
-  const _TenantFormSheet({required this.units, required this.defaultUnit});
+  const _TenantFormSheet({
+    required this.units,
+    required this.defaultUnit,
+    this.existingTenant,
+  });
 
   final List<LeasingUnit> units;
   final LeasingUnit defaultUnit;
+  final Tenant? existingTenant;
 
   @override
   State<_TenantFormSheet> createState() => _TenantFormSheetState();
@@ -81,7 +171,8 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
 
   static const _statuses = ['active', 'pending', 'inactive'];
   final _dateFmt = DateFormat('MMM d, yyyy');
-  final _rentFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+  final _rentFmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
 
   @override
   void initState() {
@@ -90,9 +181,23 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
     final fl = widget.defaultUnit.floor;
     _draft = _Draft(
       unitId: widget.defaultUnit.id,
-      businessType: LeasingUnit.categories.contains(cat) ? cat : LeasingUnit.categories.first,
-      floors: LeasingUnit.floors.contains(fl) ? [fl] : [LeasingUnit.floors.first],
+      businessType: LeasingUnit.categories.contains(cat)
+          ? cat
+          : LeasingUnit.categories.first,
+      floors:
+          LeasingUnit.floors.contains(fl) ? [fl] : [LeasingUnit.floors.first],
     );
+
+    final existing = widget.existingTenant;
+    if (existing != null) {
+      _firstNameCtrl.text = existing.firstName;
+      _lastNameCtrl.text = existing.lastName;
+      _emailCtrl.text = existing.email;
+      _phoneCtrl.text = existing.phone;
+      _companyNameCtrl.text = existing.companyName ?? '';
+      _draft.status = existing.status;
+      _draft.moveInDate = existing.moveInDate;
+    }
   }
 
   @override
@@ -159,8 +264,7 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
 
   InputDecoration get _dec => InputDecoration(
         contentPadding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.spaceSM,
-            vertical: AppDimensions.spaceSM),
+            horizontal: AppDimensions.spaceSM, vertical: AppDimensions.spaceSM),
         enabledBorder: OutlineInputBorder(
           borderSide: const BorderSide(color: AppColors.border),
           borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
@@ -207,127 +311,136 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
             _buildTitleBar(),
             Flexible(
               child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppDimensions.spaceLG),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionLabel('PROPERTY', required: true),
-                    const SizedBox(height: AppDimensions.spaceXS),
-                    _buildPropertyDropdown(),
-                    const SizedBox(height: AppDimensions.spaceMD),
-
-                    Row(
-                      children: [
-                        Expanded(child: _buildBusinessTypeSection()),
-                        const SizedBox(width: AppDimensions.spaceSM),
-                        Expanded(child: _buildFloorSection()),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.spaceMD),
-
-                    _sectionLabel('AREA BREAKDOWN'),
-                    const SizedBox(height: AppDimensions.spaceSM),
-                    ..._draft.areas.asMap().entries.map((e) {
-                      final i = e.key;
-                      final a = e.value;
-                      return _TenantAreaRow(
-                        key: ValueKey(a),
-                        draft: a,
-                        fmt: _rentFmt,
-                        onRemove: _draft.areas.length > 1
-                            ? () => setState(() {
-                                  a.dispose();
-                                  _draft.areas.removeAt(i);
-                                })
-                            : null,
-                        onChanged: () => setState(() {}),
-                      );
-                    }),
-                    const SizedBox(height: AppDimensions.spaceXS),
-                    GestureDetector(
-                      onTap: () => setState(() => _draft.areas.add(AreaEntryDraft())),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.add_circle_outline,
-                              size: AppDimensions.iconMD, color: AppColors.accentGold),
-                          SizedBox(width: AppDimensions.spaceXS),
-                          Text('Add area entry',
-                              style: TextStyle(
-                                  fontSize: AppDimensions.fontBase,
-                                  color: AppColors.accentGold,
-                                  fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.spaceSM),
-                    Container(
-                      padding: const EdgeInsets.all(AppDimensions.spaceSM),
-                      decoration: BoxDecoration(
-                        color: AppColors.pageBg,
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
-                      ),
-                      child: Row(
+                padding: const EdgeInsets.all(AppDimensions.spaceLG),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionLabel('PROPERTY', required: true),
+                      const SizedBox(height: AppDimensions.spaceXS),
+                      _buildPropertyDropdown(),
+                      const SizedBox(height: AppDimensions.spaceMD),
+                      Row(
                         children: [
-                          const Text('Monthly Rent',
-                              style: TextStyle(
-                                  fontSize: AppDimensions.fontBase, color: AppColors.textMuted)),
-                          const Spacer(),
-                          Text(
-                            _rentFmt.format(
-                                _draft.areas.fold(0.0, (s, a) => s + a.rent)),
-                            style: const TextStyle(
-                                fontSize: AppDimensions.fontH3,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.accentGold),
-                          ),
+                          Expanded(child: _buildBusinessTypeSection()),
+                          const SizedBox(width: AppDimensions.spaceSM),
+                          Expanded(child: _buildFloorSection()),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: AppDimensions.spaceMD),
-
-                    _sectionLabel('TENANT NAME', required: true),
-                    const SizedBox(height: AppDimensions.spaceXS),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(_firstNameCtrl, 'First name', required: true)),
-                        const SizedBox(width: AppDimensions.spaceSM),
-                        Expanded(child: _buildTextField(_lastNameCtrl, 'Last name', required: true)),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.spaceSM),
-                    _buildTextField(_companyNameCtrl, 'Company / Business name (optional)'),
-                    const SizedBox(height: AppDimensions.spaceMD),
-
-                    _sectionLabel('CONTACT'),
-                    const SizedBox(height: AppDimensions.spaceXS),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(_emailCtrl, 'Email', keyboardType: TextInputType.emailAddress)),
-                        const SizedBox(width: AppDimensions.spaceSM),
-                        Expanded(child: _buildTextField(_phoneCtrl, 'Phone', keyboardType: TextInputType.phone)),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.spaceMD),
-
-                    Row(
-                      children: [
-                        Expanded(child: _buildStatusDropdown()),
-                        const SizedBox(width: AppDimensions.spaceSM),
-                        Expanded(child: _buildDatePicker()),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: AppDimensions.spaceMD),
+                      _sectionLabel('AREA BREAKDOWN'),
+                      const SizedBox(height: AppDimensions.spaceSM),
+                      ..._draft.areas.asMap().entries.map((e) {
+                        final i = e.key;
+                        final a = e.value;
+                        return _TenantAreaRow(
+                          key: ValueKey(a),
+                          draft: a,
+                          fmt: _rentFmt,
+                          onRemove: _draft.areas.length > 1
+                              ? () => setState(() {
+                                    a.dispose();
+                                    _draft.areas.removeAt(i);
+                                  })
+                              : null,
+                          onChanged: () => setState(() {}),
+                        );
+                      }),
+                      const SizedBox(height: AppDimensions.spaceXS),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _draft.areas.add(AreaEntryDraft())),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.add_circle_outline,
+                                size: AppDimensions.iconMD,
+                                color: AppColors.accentGold),
+                            SizedBox(width: AppDimensions.spaceXS),
+                            Text('Add area entry',
+                                style: TextStyle(
+                                    fontSize: AppDimensions.fontBase,
+                                    color: AppColors.accentGold,
+                                    fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.spaceSM),
+                      Container(
+                        padding: const EdgeInsets.all(AppDimensions.spaceSM),
+                        decoration: BoxDecoration(
+                          color: AppColors.pageBg,
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusXS),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('Monthly Rent',
+                                style: TextStyle(
+                                    fontSize: AppDimensions.fontBase,
+                                    color: AppColors.textMuted)),
+                            const Spacer(),
+                            Text(
+                              _rentFmt.format(
+                                  _draft.areas.fold(0.0, (s, a) => s + a.rent)),
+                              style: const TextStyle(
+                                  fontSize: AppDimensions.fontH3,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.accentGold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.spaceMD),
+                      _sectionLabel('TENANT NAME', required: true),
+                      const SizedBox(height: AppDimensions.spaceXS),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildTextField(
+                                  _firstNameCtrl, 'First name',
+                                  required: true)),
+                          const SizedBox(width: AppDimensions.spaceSM),
+                          Expanded(
+                              child: _buildTextField(_lastNameCtrl, 'Last name',
+                                  required: true)),
+                        ],
+                      ),
+                      const SizedBox(height: AppDimensions.spaceSM),
+                      _buildTextField(_companyNameCtrl,
+                          'Company / Business name (optional)'),
+                      const SizedBox(height: AppDimensions.spaceMD),
+                      _sectionLabel('CONTACT'),
+                      const SizedBox(height: AppDimensions.spaceXS),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildTextField(_emailCtrl, 'Email',
+                                  keyboardType: TextInputType.emailAddress)),
+                          const SizedBox(width: AppDimensions.spaceSM),
+                          Expanded(
+                              child: _buildTextField(_phoneCtrl, 'Phone',
+                                  keyboardType: TextInputType.phone)),
+                        ],
+                      ),
+                      const SizedBox(height: AppDimensions.spaceMD),
+                      Row(
+                        children: [
+                          Expanded(child: _buildStatusDropdown()),
+                          const SizedBox(width: AppDimensions.spaceSM),
+                          Expanded(child: _buildDatePicker()),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          _buildFooter(),
-        ],
+            _buildFooter(),
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildTitleBar() {
@@ -338,9 +451,11 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
           border: Border(bottom: BorderSide(color: AppColors.border))),
       child: Row(
         children: [
-          const Text(
-            'Add Tenant',
-            style: TextStyle(
+          Text(
+            widget.existingTenant != null
+                ? 'Edit Tenant Details'
+                : 'Add Tenant',
+            style: const TextStyle(
                 fontSize: AppDimensions.fontH3,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary),
@@ -366,7 +481,8 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
           initialValue: _draft.businessType,
           dropdownColor: AppColors.cardBg,
           isExpanded: true,
-          style: const TextStyle(fontSize: AppDimensions.fontBase, color: AppColors.textPrimary),
+          style: const TextStyle(
+              fontSize: AppDimensions.fontBase, color: AppColors.textPrimary),
           decoration: _dec,
           items: LeasingUnit.categories
               .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -400,9 +516,12 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: selected ? AppColors.accentGold.withValues(alpha: 0.15) : AppColors.pageBg,
+                  color: selected
+                      ? AppColors.accentGold.withValues(alpha: 0.15)
+                      : AppColors.pageBg,
                   border: Border.all(
                     color: selected ? AppColors.accentGold : AppColors.border,
                     width: selected ? 1.5 : 1,
@@ -415,14 +534,18 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
                     if (selected)
                       const Padding(
                         padding: EdgeInsets.only(right: 5),
-                        child: Icon(Icons.check, size: 13, color: AppColors.accentGold),
+                        child: Icon(Icons.check,
+                            size: 13, color: AppColors.accentGold),
                       ),
                     Text(
                       floor,
                       style: TextStyle(
                         fontSize: AppDimensions.fontBase,
-                        color: selected ? AppColors.accentGold : AppColors.textSecondary,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        color: selected
+                            ? AppColors.accentGold
+                            : AppColors.textSecondary,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
                   ],
@@ -491,7 +614,8 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
           onTap: _pickDate,
           child: Container(
             height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: AppDimensions.spaceSM),
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppDimensions.spaceSM),
             decoration: BoxDecoration(
               color: AppColors.pageBg,
               border: Border.all(color: AppColors.border),
@@ -531,7 +655,11 @@ class _TenantFormSheetState extends State<_TenantFormSheet> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           const Spacer(),
-          AppButton(label: 'ADD TENANT', onPressed: _save),
+          AppButton(
+            label:
+                widget.existingTenant != null ? 'SAVE CHANGES' : 'ADD TENANT',
+            onPressed: _save,
+          ),
         ],
       ),
     );
@@ -738,8 +866,7 @@ class _TenantAreaRow extends StatelessWidget {
               ),
             )
           else
-            const SizedBox(
-                width: AppDimensions.iconMD + AppDimensions.spaceXS),
+            const SizedBox(width: AppDimensions.iconMD + AppDimensions.spaceXS),
         ],
       ),
     );

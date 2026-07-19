@@ -15,7 +15,8 @@ class ReportsRepository {
     return CashFlowReport.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<RentCollectionReport> getRentCollection({int? year, int? month}) async {
+  Future<RentCollectionReport> getRentCollection(
+      {int? year, int? month}) async {
     final params = <String, dynamic>{};
     if (year != null) params['year'] = year;
     if (month != null) params['month'] = month;

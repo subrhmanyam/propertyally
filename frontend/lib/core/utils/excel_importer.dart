@@ -49,17 +49,17 @@ List<LeasingUnit> _parseTemplate(List<List<Data?>> rows) {
     if (name.isEmpty) continue;
 
     groups.putIfAbsent(name, () => []).add(_RowData(
-      name: name,
-      floor: _str(row.elementAtOrNull(1)),
-      category: _str(row.elementAtOrNull(2)),
-      areaType: _str(row.elementAtOrNull(3)),
-      sqft: _num(row.elementAtOrNull(4)),
-      rate: _num(row.elementAtOrNull(5)),
-      status: _str(row.elementAtOrNull(6)),
-      contact: _str(row.elementAtOrNull(7)),
-      email: _str(row.elementAtOrNull(8)),
-      notes: _str(row.elementAtOrNull(9)),
-    ));
+          name: name,
+          floor: _str(row.elementAtOrNull(1)),
+          category: _str(row.elementAtOrNull(2)),
+          areaType: _str(row.elementAtOrNull(3)),
+          sqft: _num(row.elementAtOrNull(4)),
+          rate: _num(row.elementAtOrNull(5)),
+          status: _str(row.elementAtOrNull(6)),
+          contact: _str(row.elementAtOrNull(7)),
+          email: _str(row.elementAtOrNull(8)),
+          notes: _str(row.elementAtOrNull(9)),
+        ));
   }
 
   int idCounter = DateTime.now().millisecondsSinceEpoch;
@@ -106,7 +106,9 @@ List<LeasingUnit> _parseNativeFormat(List<List<Data?>> rows) {
         id: 'imp_${idCounter++}',
         name: currentName,
         category: currentCategory.isNotEmpty ? currentCategory : 'Other',
-        floor: currentFloors.isNotEmpty ? currentFloors.join(' & ') : 'Ground Floor',
+        floor: currentFloors.isNotEmpty
+            ? currentFloors.join(' & ')
+            : 'Ground Floor',
         status: _normalizeStatus(currentStatus),
         areas: List.of(currentAreas),
       ));

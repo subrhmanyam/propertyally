@@ -49,9 +49,7 @@ class _DashboardBody extends StatelessWidget {
             const SizedBox(height: AppDimensions.spaceLG),
 
             // ── Main content: left + right columns ───────────────
-            isMobile
-                ? _MobileLayout(data: data)
-                : _DesktopLayout(data: data),
+            isMobile ? _MobileLayout(data: data) : _DesktopLayout(data: data),
           ],
         ),
       ),

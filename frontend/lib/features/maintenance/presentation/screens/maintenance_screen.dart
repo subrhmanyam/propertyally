@@ -43,11 +43,13 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             children: [
               _Header(provider: provider),
               if (provider.isLoading)
-                const LinearProgressIndicator(color: AppColors.accentGold, minHeight: 2),
+                const LinearProgressIndicator(
+                    color: AppColors.accentGold, minHeight: 2),
               if (provider.hasError)
                 _ErrorBanner(message: provider.errorMessage!),
               _KpiStrip(provider: provider),
-              _FilterBar(provider: provider, searchController: _searchController),
+              _FilterBar(
+                  provider: provider, searchController: _searchController),
               Expanded(
                 child: provider.filtered.isEmpty && !provider.isLoading
                     ? const _EmptyState()
@@ -101,7 +103,8 @@ class _Header extends StatelessWidget {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 18),
+            icon:
+                const Icon(Icons.refresh, color: AppColors.textMuted, size: 18),
             tooltip: 'Refresh',
             onPressed: provider.load,
           ),
@@ -124,7 +127,10 @@ class _KpiStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppDimensions.pagePadding, 0, AppDimensions.pagePadding, 12,
+        AppDimensions.pagePadding,
+        0,
+        AppDimensions.pagePadding,
+        12,
       ),
       child: Row(
         children: [
@@ -152,7 +158,8 @@ class _KpiStrip extends StatelessWidget {
 }
 
 class _KpiChip extends StatelessWidget {
-  const _KpiChip({required this.label, required this.value, required this.color});
+  const _KpiChip(
+      {required this.label, required this.value, required this.color});
 
   final String label;
   final int value;
@@ -207,7 +214,10 @@ class _FilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppDimensions.pagePadding, 0, AppDimensions.pagePadding, 12,
+        AppDimensions.pagePadding,
+        0,
+        AppDimensions.pagePadding,
+        12,
       ),
       child: Row(
         children: [
@@ -219,7 +229,8 @@ class _FilterBar extends StatelessWidget {
                 onTap: () => provider.setFilter(f.$1),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     color: active ? AppColors.accentSilver : AppColors.cardBg,
                     border: Border.all(
@@ -232,7 +243,8 @@ class _FilterBar extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: active ? AppColors.bgOuter : AppColors.textSecondary,
+                      color:
+                          active ? AppColors.bgOuter : AppColors.textSecondary,
                     ),
                   ),
                 ),
@@ -246,11 +258,13 @@ class _FilterBar extends StatelessWidget {
             child: TextField(
               controller: searchController,
               onChanged: provider.setSearchQuery,
-              style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textPrimary),
               decoration: const InputDecoration(
                 hintText: 'Search requests…',
                 hintStyle: TextStyle(fontSize: 12),
-                prefixIcon: Icon(Icons.search, color: AppColors.textMuted, size: 16),
+                prefixIcon:
+                    Icon(Icons.search, color: AppColors.textMuted, size: 16),
                 contentPadding: EdgeInsets.symmetric(vertical: 0),
               ),
             ),
@@ -271,7 +285,8 @@ class _RequestTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding),
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding),
       children: [
         Container(
           decoration: BoxDecoration(
@@ -282,7 +297,8 @@ class _RequestTable extends StatelessWidget {
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: const BoxDecoration(
                   color: AppColors.pageBg,
                   border: Border(bottom: BorderSide(color: AppColors.border)),
@@ -387,7 +403,8 @@ class _RequestRowState extends State<_RequestRow> {
                   if (r.description != null)
                     Text(
                       r.description!,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textMuted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -398,7 +415,8 @@ class _RequestRowState extends State<_RequestRow> {
               flex: 2,
               child: Text(
                 r.category ?? '—',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
               ),
             ),
             Expanded(
@@ -413,7 +431,8 @@ class _RequestRowState extends State<_RequestRow> {
               flex: 2,
               child: Text(
                 r.assignedTo ?? '—',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -422,12 +441,15 @@ class _RequestRowState extends State<_RequestRow> {
               flex: 2,
               child: Text(
                 fmt.format(r.createdAt),
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                style:
+                    const TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
             ),
             Expanded(
               flex: 2,
-              child: _hovered ? _StatusMenu(req: r, provider: provider) : const SizedBox(),
+              child: _hovered
+                  ? _StatusMenu(req: r, provider: provider)
+                  : const SizedBox(),
             ),
           ],
         ),
@@ -447,9 +469,11 @@ class _CardList extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.read<MaintenanceProvider>();
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding),
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding),
       itemCount: requests.length,
-      itemBuilder: (context, i) => _RequestCard(req: requests[i], provider: provider),
+      itemBuilder: (context, i) =>
+          _RequestCard(req: requests[i], provider: provider),
     );
   }
 }
@@ -503,7 +527,9 @@ class _RequestCard extends StatelessWidget {
               _StatusBadge(status: req.status),
               if (req.category != null) ...[
                 const SizedBox(width: 8),
-                Text(req.category!, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(req.category!,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textMuted)),
               ],
               const Spacer(),
               _StatusMenu(req: req, provider: provider),
@@ -542,7 +568,8 @@ class _StatusMenu extends StatelessWidget {
                 value: o.$1,
                 child: Text(
                   o.$2,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textPrimary),
                 ),
               ))
           .toList(),
@@ -637,19 +664,30 @@ class _NewRequestDialogState extends State<_NewRequestDialog> {
       setState(() => _error = 'Title is required');
       return;
     }
-    setState(() { _saving = true; _error = null; });
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     try {
       await widget.provider.createRequest({
         'title': _titleCtrl.text.trim(),
-        'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-        'category': _categoryCtrl.text.trim().isEmpty ? null : _categoryCtrl.text.trim(),
-        'assigned_to': _assignedCtrl.text.trim().isEmpty ? null : _assignedCtrl.text.trim(),
+        'description':
+            _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        'category': _categoryCtrl.text.trim().isEmpty
+            ? null
+            : _categoryCtrl.text.trim(),
+        'assigned_to': _assignedCtrl.text.trim().isEmpty
+            ? null
+            : _assignedCtrl.text.trim(),
         'priority': _priority,
         'status': 'open',
       });
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      setState(() { _saving = false; _error = e.toString(); });
+      setState(() {
+        _saving = false;
+        _error = e.toString();
+      });
     }
   }
 
@@ -659,7 +697,10 @@ class _NewRequestDialogState extends State<_NewRequestDialog> {
       backgroundColor: AppColors.cardBg,
       title: const Text(
         'New Maintenance Request',
-        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+        style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textHeading),
       ),
       content: SizedBox(
         width: 380,
@@ -670,17 +711,22 @@ class _NewRequestDialogState extends State<_NewRequestDialog> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.error)),
+                child: Text(_error!,
+                    style:
+                        const TextStyle(fontSize: 12, color: AppColors.error)),
               ),
             _Field(label: 'Title *', controller: _titleCtrl),
             const SizedBox(height: 10),
             _Field(label: 'Description', controller: _descCtrl, maxLines: 2),
             const SizedBox(height: 10),
-            _Field(label: 'Category (e.g. Plumbing, Electrical)', controller: _categoryCtrl),
+            _Field(
+                label: 'Category (e.g. Plumbing, Electrical)',
+                controller: _categoryCtrl),
             const SizedBox(height: 10),
             _Field(label: 'Assigned To', controller: _assignedCtrl),
             const SizedBox(height: 10),
-            const Text('Priority', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            const Text('Priority',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             const SizedBox(height: 4),
             Wrap(
               spacing: 6,
@@ -689,9 +735,12 @@ class _NewRequestDialogState extends State<_NewRequestDialog> {
                 return GestureDetector(
                   onTap: () => setState(() => _priority = p),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: active ? _priorityColor(p).withValues(alpha: 0.2) : Colors.transparent,
+                      color: active
+                          ? _priorityColor(p).withValues(alpha: 0.2)
+                          : Colors.transparent,
                       border: Border.all(
                         color: active ? _priorityColor(p) : AppColors.border,
                       ),
@@ -701,8 +750,11 @@ class _NewRequestDialogState extends State<_NewRequestDialog> {
                       p[0].toUpperCase() + p.substring(1),
                       style: TextStyle(
                         fontSize: 11,
-                        color: active ? _priorityColor(p) : AppColors.textSecondary,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                        color: active
+                            ? _priorityColor(p)
+                            : AppColors.textSecondary,
+                        fontWeight:
+                            active ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -715,16 +767,22 @@ class _NewRequestDialogState extends State<_NewRequestDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          child: const Text('Cancel',
+              style: TextStyle(color: AppColors.textMuted)),
         ),
         TextButton(
           onPressed: _saving ? null : _save,
           child: _saving
               ? const SizedBox(
-                  width: 14, height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGold),
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppColors.accentGold),
                 )
-              : const Text('Create', style: TextStyle(color: AppColors.accentGold, fontWeight: FontWeight.w600)),
+              : const Text('Create',
+                  style: TextStyle(
+                      color: AppColors.accentGold,
+                      fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -739,7 +797,8 @@ class _NewRequestDialogState extends State<_NewRequestDialog> {
 }
 
 class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.controller, this.maxLines = 1});
+  const _Field(
+      {required this.label, required this.controller, this.maxLines = 1});
 
   final String label;
   final TextEditingController controller;
@@ -750,7 +809,8 @@ class _Field extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
         const SizedBox(height: 4),
         TextField(
           controller: controller,
@@ -758,7 +818,8 @@ class _Field extends StatelessWidget {
           style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
           decoration: InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(color: AppColors.border),
@@ -797,7 +858,8 @@ class _PriorityBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -818,7 +880,11 @@ class _StatusBadge extends StatelessWidget {
           'In Progress'
         ),
       MaintStatus.onHold => (AppColors.border, AppColors.textMuted, 'On Hold'),
-      MaintStatus.completed => (AppColors.occupiedBg, AppColors.success, 'Completed'),
+      MaintStatus.completed => (
+          AppColors.occupiedBg,
+          AppColors.success,
+          'Completed'
+        ),
       MaintStatus.cancelled => (
           AppColors.error.withValues(alpha: 0.1),
           AppColors.error,
@@ -876,9 +942,11 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.pagePadding, vertical: 8),
       color: AppColors.error.withValues(alpha: 0.1),
-      child: Text(message, style: const TextStyle(fontSize: 12, color: AppColors.error)),
+      child: Text(message,
+          style: const TextStyle(fontSize: 12, color: AppColors.error)),
     );
   }
 }

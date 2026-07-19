@@ -46,7 +46,8 @@ class AuthRepository {
       final parts = session.accessToken.split('.');
       if (parts.length < 2) return 'admin';
       final payload = base64Url.normalize(parts[1]);
-      final data = json.decode(utf8.decode(base64Url.decode(payload))) as Map<String, dynamic>;
+      final data = json.decode(utf8.decode(base64Url.decode(payload)))
+          as Map<String, dynamic>;
       return (data['app_metadata'] as Map?)?['role'] as String? ?? 'admin';
     } catch (_) {
       return 'admin';
@@ -56,7 +57,8 @@ class AuthRepository {
   /// Fallback: fetch role from backend profile endpoint (when JWT hook not yet enabled).
   Future<String> fetchRole(String userId) async {
     try {
-      final res = await _dio.get('/api/v1/auth/profile', queryParameters: {'user_id': userId});
+      final res = await _dio
+          .get('/api/v1/auth/profile', queryParameters: {'user_id': userId});
       return (res.data as Map?)?['role'] as String? ?? 'admin';
     } catch (_) {
       return 'admin';

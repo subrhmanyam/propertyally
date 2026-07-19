@@ -40,8 +40,7 @@ class TenantShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.bgOuter,
-      bottomNavigationBar:
-          isMobile ? _TenantBottomNav(active: active) : null,
+      bottomNavigationBar: isMobile ? _TenantBottomNav(active: active) : null,
       body: Row(
         children: [
           if (!isMobile) _TenantSidebar(active: active),
@@ -49,8 +48,8 @@ class TenantShell extends StatelessWidget {
             child: Container(
               decoration: const BoxDecoration(
                 color: AppColors.contentBg,
-                border: Border(
-                    left: BorderSide(color: AppColors.border, width: 1)),
+                border:
+                    Border(left: BorderSide(color: AppColors.border, width: 1)),
               ),
               child: Column(
                 children: [
@@ -108,8 +107,7 @@ class _TenantSidebar extends StatelessWidget {
                   height: 28,
                   decoration: BoxDecoration(
                     color: AppColors.accentGold,
-                    borderRadius:
-                        BorderRadius.circular(AppDimensions.radiusXS),
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
                   ),
                   child: const Icon(Icons.domain,
                       color: AppColors.bgOuter, size: 16),
@@ -170,8 +168,7 @@ class _SidebarItemState extends State<_SidebarItem> {
         onTap: widget.onTap,
         child: Container(
           margin: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.spaceSM,
-              vertical: 2),
+              horizontal: AppDimensions.spaceSM, vertical: 2),
           padding: const EdgeInsets.symmetric(
               horizontal: AppDimensions.spaceMD,
               vertical: AppDimensions.spaceSM),
@@ -197,8 +194,7 @@ class _SidebarItemState extends State<_SidebarItem> {
                 widget.label,
                 style: TextStyle(
                   fontSize: AppDimensions.fontBase,
-                  fontWeight:
-                      widget.active ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight: widget.active ? FontWeight.w600 : FontWeight.w400,
                   color: widget.active
                       ? AppColors.textPrimary
                       : AppColors.textMuted,
@@ -238,8 +234,7 @@ class _TenantTopBar extends StatelessWidget {
             Text(
               auth.userEmail,
               style: const TextStyle(
-                  fontSize: AppDimensions.fontSM,
-                  color: AppColors.textMuted),
+                  fontSize: AppDimensions.fontSM, color: AppColors.textMuted),
             ),
             const SizedBox(width: AppDimensions.spaceMD),
             IconButton(

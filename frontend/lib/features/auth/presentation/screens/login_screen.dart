@@ -91,7 +91,6 @@ class _LoginScreenState extends State<LoginScreen>
                     ],
                   ),
                 ),
-
                 const SizedBox(height: AppDimensions.spaceLG),
                 const Center(
                   child: Text(
@@ -513,8 +512,7 @@ class _ErrorBanner extends StatelessWidget {
             child: Text(
               message,
               style: const TextStyle(
-                  color: AppColors.error,
-                  fontSize: AppDimensions.fontBase),
+                  color: AppColors.error, fontSize: AppDimensions.fontBase),
             ),
           ),
         ],

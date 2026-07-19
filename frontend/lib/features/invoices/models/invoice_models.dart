@@ -13,7 +13,8 @@ class InvoiceLineItem {
   double amount;
   bool taxable;
 
-  InvoiceLineItem copyWith({String? description, double? amount, bool? taxable}) =>
+  InvoiceLineItem copyWith(
+          {String? description, double? amount, bool? taxable}) =>
       InvoiceLineItem(
         description: description ?? this.description,
         amount: amount ?? this.amount,

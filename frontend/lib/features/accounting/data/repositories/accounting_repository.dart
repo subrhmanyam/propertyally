@@ -25,7 +25,9 @@ class AccountingRepository {
       queryParameters: params.isEmpty ? null : params,
     );
     final list = (resp.data as List?) ?? [];
-    return list.map((e) => Transaction.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Map<String, dynamic>> getSummary() async {

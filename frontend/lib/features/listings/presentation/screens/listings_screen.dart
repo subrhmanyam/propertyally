@@ -37,7 +37,8 @@ class _ListingsScreenState extends State<ListingsScreen> {
             children: [
               _Header(onRefresh: provider.load),
               if (provider.isLoading)
-                const LinearProgressIndicator(color: AppColors.accentGold, minHeight: 2),
+                const LinearProgressIndicator(
+                    color: AppColors.accentGold, minHeight: 2),
               if (provider.hasError)
                 _ErrorBanner(message: provider.errorMessage!),
               Expanded(
@@ -89,7 +90,8 @@ class _Header extends StatelessWidget {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 18),
+            icon:
+                const Icon(Icons.refresh, color: AppColors.textMuted, size: 18),
             tooltip: 'Refresh',
             onPressed: onRefresh,
           ),
@@ -107,7 +109,8 @@ class _ListingsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding),
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding),
       itemCount: listings.length,
       itemBuilder: (context, i) => _ListingRow(listing: listings[i]),
     );
@@ -118,7 +121,8 @@ class _ListingRow extends StatelessWidget {
   const _ListingRow({required this.listing});
 
   final Listing listing;
-  static final _rentFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  static final _rentFmt =
+      NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +157,8 @@ class _ListingRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '${_rentFmt.format(listing.monthlyRent)}/month',
-                    style: const TextStyle(fontSize: 11, color: AppColors.accentGold),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.accentGold),
                   ),
                 ],
               ),
@@ -171,7 +176,8 @@ class _ListingRow extends StatelessWidget {
             if (provider.postsFor(listing.id).isEmpty)
               _TriggerButton(unitId: listing.leasingUnitId),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 16),
+            const Icon(Icons.chevron_right,
+                color: AppColors.textMuted, size: 16),
           ],
         ),
       ),
@@ -195,7 +201,9 @@ class _TriggerButton extends StatelessWidget {
           await provider.triggerAgent(unitId, selected);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Publishing to ${selected.length} platform${selected.length == 1 ? '' : 's'}…')),
+              SnackBar(
+                  content: Text(
+                      'Publishing to ${selected.length} platform${selected.length == 1 ? '' : 's'}…')),
             );
           }
         } catch (_) {
@@ -214,7 +222,10 @@ class _TriggerButton extends StatelessWidget {
         ),
         child: const Text(
           'Publish',
-          style: TextStyle(fontSize: 11, color: AppColors.accentGold, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              fontSize: 11,
+              color: AppColors.accentGold,
+              fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -230,9 +241,11 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.pagePadding, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.pagePadding, vertical: 8),
       color: AppColors.error.withValues(alpha: 0.1),
-      child: Text(message, style: const TextStyle(fontSize: 12, color: AppColors.error)),
+      child: Text(message,
+          style: const TextStyle(fontSize: 12, color: AppColors.error)),
     );
   }
 }

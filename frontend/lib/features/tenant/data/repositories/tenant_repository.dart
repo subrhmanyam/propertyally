@@ -1,11 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide MultipartFile;
 
 import '../../../../core/network/api_client.dart';
 
 class TenantRepository {
-  String get _userId =>
-      Supabase.instance.client.auth.currentUser?.id ?? '';
+  String get _userId => Supabase.instance.client.auth.currentUser?.id ?? '';
 
   Dio get _dio => ApiClient.instance;
 
@@ -69,8 +70,7 @@ class TenantRepository {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> replyToQuery(
-      String queryId, String body) async {
+  Future<Map<String, dynamic>> replyToQuery(String queryId, String body) async {
     final res = await _dio.post(
       '/api/v1/tenant/my-queries/$queryId/reply',
       queryParameters: {..._qp, 'body': body},
@@ -78,11 +78,11 @@ class TenantRepository {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> getServiceCatalog(
-      String? category) async {
+  Future<List<Map<String, dynamic>>> getServiceCatalog(String? category) async {
     final params = <String, dynamic>{};
     if (category != null) params['category'] = category;
-    final res = await _dio.get('/api/v1/service-catalog/', queryParameters: params);
+    final res =
+        await _dio.get('/api/v1/service-catalog/', queryParameters: params);
     return (res.data as List).cast<Map<String, dynamic>>();
   }
 
@@ -104,6 +104,34 @@ class TenantRepository {
     return (res.data as List).cast<Map<String, dynamic>>();
   }
 
+  Future<Map<String, dynamic>> decideServiceRequest(
+      String requestId, String status) async {
+    final res = await _dio.patch(
+      '/api/v1/service-requests/$requestId/tenant-decision',
+      queryParameters: _qp,
+      data: {'status': status},
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> uploadServiceRequestDocument(
+      String requestId, Uint8List bytes, String filename) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final res = await _dio.post(
+      '/api/v1/service-requests/$requestId/documents',
+      data: formData,
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<void> deleteServiceRequestDocument(
+      String requestId, String documentId) async {
+    await _dio
+        .delete('/api/v1/service-requests/$requestId/documents/$documentId');
+  }
+
   Future<Map<String, String>> createCheckoutSession({
     required String transactionId,
     required String successUrl,
@@ -119,6 +147,9 @@ class TenantRepository {
       },
     );
     final data = res.data as Map<String, dynamic>;
-    return {'url': data['url'] as String, 'session_id': data['session_id'] as String};
+    return {
+      'url': data['url'] as String,
+      'session_id': data['session_id'] as String
+    };
   }
 }

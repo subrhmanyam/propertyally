@@ -37,14 +37,18 @@ class Transaction {
 
   factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(
         id: json['id']?.toString() ?? '',
-        type: json['type'] == 'income' ? TransactionType.income : TransactionType.expense,
+        type: json['type'] == 'income'
+            ? TransactionType.income
+            : TransactionType.expense,
         category: json['category']?.toString() ?? '',
         amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-        date: DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
+        date:
+            DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
         description: json['description']?.toString() ?? '',
         status: _parseStatus(json['status']?.toString()),
         // DB column is leasing_unit_id; legacy mock used property_id
-        propertyId: (json['leasing_unit_id'] ?? json['property_id'])?.toString(),
+        propertyId:
+            (json['leasing_unit_id'] ?? json['property_id'])?.toString(),
         propertyName: json['property_name']?.toString(),
         tenantId: json['tenant_id']?.toString(),
         tenantName: json['tenant_name']?.toString(),

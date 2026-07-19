@@ -409,8 +409,7 @@ class _DotLegend extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 4),
           Text(label,
-              style:
-                  const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+              style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
         ],
       );
 }
@@ -576,7 +575,8 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
 }
 
 class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.controller, this.maxLines = 1});
+  const _Field(
+      {required this.label, required this.controller, this.maxLines = 1});
   final String label;
   final TextEditingController controller;
   final int maxLines;
@@ -642,8 +642,8 @@ class _DropdownField<T> extends StatelessWidget {
                 value: value,
                 isExpanded: true,
                 dropdownColor: AppColors.cardBg,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textPrimary),
+                style:
+                    const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                 items: items
                     .map((i) => DropdownMenuItem<T>(
                           value: i.$1,

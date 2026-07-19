@@ -79,6 +79,28 @@ class TenantsProvider extends BaseProvider {
     await loadTenants();
   }
 
+  Future<void> addLease(String tenantId, Map<String, dynamic> data) async {
+    final tenant = _tenants.where((t) => t.id == tenantId).firstOrNull ??
+        (_selectedTenant?.id == tenantId ? _selectedTenant : null);
+    final lease = await runAsync(() => _repository.createLease({
+          ...data,
+          'tenant_id': tenantId,
+          if (tenant?.unitId != null) 'leasing_unit_id': tenant!.unitId,
+        }));
+    if (lease != null) {
+      _selectedLease = lease;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateLease(String leaseId, Map<String, dynamic> data) async {
+    final lease = await runAsync(() => _repository.updateLease(leaseId, data));
+    if (lease != null) {
+      _selectedLease = lease;
+      notifyListeners();
+    }
+  }
+
   Future<void> deleteTenant(String id) async {
     await runAsync(() async {
       await _repository.deleteTenant(id);

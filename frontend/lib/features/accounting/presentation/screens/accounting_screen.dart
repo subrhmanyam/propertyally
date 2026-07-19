@@ -50,7 +50,8 @@ class _AccountingScreenState extends State<AccountingScreen> {
                 : '$created invoice${created == 1 ? '' : 's'} generated for $period'
                     '${skipped > 0 ? ', $skipped already existed' : ''}',
           ),
-          backgroundColor: created > 0 ? AppColors.success : AppColors.textMuted,
+          backgroundColor:
+              created > 0 ? AppColors.success : AppColors.textMuted,
         ),
       );
     } catch (e) {
@@ -79,16 +80,13 @@ class _AccountingScreenState extends State<AccountingScreen> {
                   onGenerate: () => _generateInvoices(provider),
                 ),
                 const SizedBox(height: AppDimensions.spaceLG),
-
                 _KpiRow(provider: provider),
                 const SizedBox(height: AppDimensions.spaceLG),
-
                 _FilterRow(
                   provider: provider,
                   searchController: _searchController,
                 ),
                 const SizedBox(height: AppDimensions.spaceLG),
-
                 if (provider.isLoading)
                   const Center(child: CircularProgressIndicator())
                 else if (provider.filtered.isEmpty)
@@ -149,7 +147,8 @@ class _Header extends StatelessWidget {
             child: SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGold),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppColors.accentGold),
             ),
           ),
         AppButton(
@@ -262,7 +261,8 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final fmt =
+        NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     final iconColor = data.isWarning
         ? AppColors.warning
         : data.positive
@@ -507,8 +507,10 @@ class _TransactionRowState extends State<_TransactionRow> {
     final t = widget.transaction;
     final provider = context.read<AccountingProvider>();
     final fmt = DateFormat('MMM d, yyyy');
-    final money = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-    final canMarkPaid = t.status != TransactionStatus.paid && t.type == TransactionType.income;
+    final money =
+        NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final canMarkPaid =
+        t.status != TransactionStatus.paid && t.type == TransactionType.income;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -608,11 +610,14 @@ class _TransactionRowState extends State<_TransactionRow> {
                     GestureDetector(
                       onTap: () => provider.markPaid(t.id),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppColors.occupiedBg,
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
-                          border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusXS),
+                          border: Border.all(
+                              color: AppColors.success.withValues(alpha: 0.4)),
                         ),
                         child: const Text(
                           'Mark Paid',
@@ -645,12 +650,14 @@ class _TransactionCardList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('MMM d, yyyy');
-    final money = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final money =
+        NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     final provider = context.read<AccountingProvider>();
 
     return Column(
       children: transactions.map((t) {
-        final canMarkPaid = t.status != TransactionStatus.paid && t.type == TransactionType.income;
+        final canMarkPaid = t.status != TransactionStatus.paid &&
+            t.type == TransactionType.income;
         return Container(
           margin: const EdgeInsets.only(bottom: AppDimensions.spaceSM),
           decoration: BoxDecoration(
@@ -759,8 +766,16 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, textColor, label) = switch (status) {
-      TransactionStatus.paid => (AppColors.occupiedBg, AppColors.occupiedText, 'Paid'),
-      TransactionStatus.pending => (AppColors.pendingBg, AppColors.pendingText, 'Pending'),
+      TransactionStatus.paid => (
+          AppColors.occupiedBg,
+          AppColors.occupiedText,
+          'Paid'
+        ),
+      TransactionStatus.pending => (
+          AppColors.pendingBg,
+          AppColors.pendingText,
+          'Pending'
+        ),
       TransactionStatus.overdue => (
           const Color(0xFF2E0A0A),
           AppColors.error,

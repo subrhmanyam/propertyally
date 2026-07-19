@@ -19,7 +19,8 @@ class ListingDetailScreen extends StatefulWidget {
 }
 
 class _ListingDetailScreenState extends State<ListingDetailScreen> {
-  static final _rentFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  static final _rentFmt =
+      NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
   @override
   void initState() {
@@ -48,13 +49,17 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
             leading: const BackButton(color: AppColors.textPrimary),
             title: Text(
               listing?.title ?? 'Listing',
-              style: const TextStyle(fontSize: 15, color: AppColors.textHeading),
+              style:
+                  const TextStyle(fontSize: 15, color: AppColors.textHeading),
             ),
           ),
           body: provider.isLoading && listing == null
-              ? const Center(child: CircularProgressIndicator(color: AppColors.accentGold))
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.accentGold))
               : listing == null
-                  ? const Center(child: Text('Listing not found', style: TextStyle(color: AppColors.textMuted)))
+                  ? const Center(
+                      child: Text('Listing not found',
+                          style: TextStyle(color: AppColors.textMuted)))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(AppDimensions.pagePadding),
                       child: Column(
@@ -66,7 +71,8 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                             posts: posts,
                             listing: listing,
                             isLoading: provider.isLoading,
-                            onRetry: (postId) => provider.retryPost(postId, listing.id),
+                            onRetry: (postId) =>
+                                provider.retryPost(postId, listing.id),
                           ),
                         ],
                       ),
@@ -96,11 +102,16 @@ class _ListingInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(listing.title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textHeading)),
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textHeading)),
           const SizedBox(height: 8),
           _InfoRow('Monthly Rent', rentFmt.format(listing.monthlyRent)),
-          if (listing.contactEmail != null) _InfoRow('Contact Email', listing.contactEmail!),
-          if (listing.contactPhone != null) _InfoRow('Contact Phone', listing.contactPhone!),
+          if (listing.contactEmail != null)
+            _InfoRow('Contact Email', listing.contactEmail!),
+          if (listing.contactPhone != null)
+            _InfoRow('Contact Phone', listing.contactPhone!),
           if (listing.description != null && listing.description!.isNotEmpty)
             _InfoRow('Description', listing.description!),
         ],
@@ -125,11 +136,13 @@ class _InfoRow extends StatelessWidget {
           SizedBox(
             width: 120,
             child: Text(label,
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                style:
+                    const TextStyle(fontSize: 12, color: AppColors.textMuted)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textPrimary)),
           ),
         ],
       ),
@@ -157,11 +170,15 @@ class _PlatformGrid extends StatelessWidget {
       children: [
         const Text(
           'Platform Status',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+          style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textHeading),
         ),
         const SizedBox(height: 12),
         if (isLoading && posts.isEmpty)
-          const Center(child: CircularProgressIndicator(color: AppColors.accentGold))
+          const Center(
+              child: CircularProgressIndicator(color: AppColors.accentGold))
         else if (posts.isEmpty)
           const Text(
             'No platform posts yet. Tap Publish from the listings screen to start.',
@@ -238,12 +255,14 @@ class _PlatformCard extends StatelessWidget {
               Container(
                 width: 8,
                 height: 8,
-                decoration: BoxDecoration(color: _statusColor, shape: BoxShape.circle),
+                decoration:
+                    BoxDecoration(color: _statusColor, shape: BoxShape.circle),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(_statusLabel, style: TextStyle(fontSize: 11, color: _statusColor)),
+          Text(_statusLabel,
+              style: TextStyle(fontSize: 11, color: _statusColor)),
           const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -255,7 +274,8 @@ class _PlatformCard extends StatelessWidget {
                   onTap: () => launchUrl(Uri.parse(post.externalUrl!)),
                 ),
               if (post.status == 'failed')
-                _CardAction(label: 'Retry', icon: Icons.refresh, onTap: onRetry),
+                _CardAction(
+                    label: 'Retry', icon: Icons.refresh, onTap: onRetry),
               if (post.status == 'manual_required')
                 _CardAction(
                   label: 'Copy',
@@ -298,11 +318,13 @@ class _PlatformCard extends StatelessWidget {
                 const SnackBar(content: Text('Copied to clipboard')),
               );
             },
-            child: const Text('Copy All', style: TextStyle(color: AppColors.accentGold)),
+            child: const Text('Copy All',
+                style: TextStyle(color: AppColors.accentGold)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close', style: TextStyle(color: AppColors.textMuted)),
+            child: const Text('Close',
+                style: TextStyle(color: AppColors.textMuted)),
           ),
         ],
       ),
@@ -311,7 +333,8 @@ class _PlatformCard extends StatelessWidget {
 }
 
 class _CardAction extends StatelessWidget {
-  const _CardAction({required this.label, required this.icon, required this.onTap});
+  const _CardAction(
+      {required this.label, required this.icon, required this.onTap});
 
   final String label;
   final IconData icon;
@@ -326,7 +349,9 @@ class _CardAction extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: AppColors.accentGold),
           const SizedBox(width: 3),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.accentGold)),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 11, color: AppColors.accentGold)),
         ],
       ),
     );

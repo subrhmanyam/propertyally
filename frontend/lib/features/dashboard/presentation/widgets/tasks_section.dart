@@ -121,7 +121,9 @@ class _TaskRowState extends State<_TaskRow> {
                       height: 18,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _checked ? AppColors.accentGreen : Colors.transparent,
+                        color: _checked
+                            ? AppColors.accentGreen
+                            : Colors.transparent,
                         border: Border.all(
                           color: _checked
                               ? AppColors.accentGreen
@@ -130,7 +132,8 @@ class _TaskRowState extends State<_TaskRow> {
                         ),
                       ),
                       child: _checked
-                          ? const Icon(Icons.check, size: 12, color: Colors.white)
+                          ? const Icon(Icons.check,
+                              size: 12, color: Colors.white)
                           : null,
                     ),
                   ),

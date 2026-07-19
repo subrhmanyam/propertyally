@@ -13,9 +13,21 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, textColor, label) = switch (status) {
-      PropertyStatus.occupied => (AppColors.occupiedBg, AppColors.occupiedText, AppStrings.occupied),
-      PropertyStatus.vacant   => (AppColors.vacantBg,   AppColors.vacantText,   AppStrings.vacant),
-      PropertyStatus.pending  => (AppColors.pendingBg,  AppColors.pendingText,  AppStrings.pending),
+      PropertyStatus.occupied => (
+          AppColors.occupiedBg,
+          AppColors.occupiedText,
+          AppStrings.occupied
+        ),
+      PropertyStatus.vacant => (
+          AppColors.vacantBg,
+          AppColors.vacantText,
+          AppStrings.vacant
+        ),
+      PropertyStatus.pending => (
+          AppColors.pendingBg,
+          AppColors.pendingText,
+          AppStrings.pending
+        ),
     };
 
     return Container(

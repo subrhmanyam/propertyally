@@ -143,14 +143,22 @@ class Property {
         'Lakeview Towers',
       ][i],
       street: '${100 + i * 10} Main St',
-      city: ['Austin', 'Dallas', 'Houston', 'San Antonio', 'Plano', 'Irving'][i],
+      city: [
+        'Austin',
+        'Dallas',
+        'Houston',
+        'San Antonio',
+        'Plano',
+        'Irving'
+      ][i],
       state: 'TX',
       zipCode: '7870${i + 1}',
       propertyType: i % 2 == 0 ? 'Apartment' : 'Single Family',
       totalUnits: 8 + i * 2,
       isActive: i != 4,
       photos: [],
-      amenities: ['Pool', 'Gym', 'Parking', 'Pet Friendly'].sublist(0, (i % 4) + 1),
+      amenities:
+          ['Pool', 'Gym', 'Parking', 'Pet Friendly'].sublist(0, (i % 4) + 1),
       units: List.generate(4 + i, (j) => Unit.mock(id, j)),
       yearBuilt: 2000 + i * 3,
     );

@@ -91,6 +91,45 @@ class TenantProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> decideServiceRequest(String requestId, String status) async {
+    final updated = await _repo.decideServiceRequest(requestId, status);
+    final idx = serviceRequests.indexWhere((r) => r['id'] == requestId);
+    if (idx != -1) {
+      serviceRequests[idx] = {...serviceRequests[idx], ...updated};
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadServiceRequestDocument(
+      String requestId, Uint8List bytes, String filename) async {
+    final doc =
+        await _repo.uploadServiceRequestDocument(requestId, bytes, filename);
+    final idx = serviceRequests.indexWhere((r) => r['id'] == requestId);
+    if (idx != -1) {
+      final docs = List<Map<String, dynamic>>.from(
+          serviceRequests[idx]['documents'] as List? ?? []);
+      serviceRequests[idx] = {
+        ...serviceRequests[idx],
+        'documents': [...docs, doc],
+      };
+      notifyListeners();
+    }
+    return doc;
+  }
+
+  Future<void> deleteServiceRequestDocument(
+      String requestId, String documentId) async {
+    await _repo.deleteServiceRequestDocument(requestId, documentId);
+    final idx = serviceRequests.indexWhere((r) => r['id'] == requestId);
+    if (idx != -1) {
+      final docs = List<Map<String, dynamic>>.from(
+          serviceRequests[idx]['documents'] as List? ?? []);
+      docs.removeWhere((d) => d['id'] == documentId);
+      serviceRequests[idx] = {...serviceRequests[idx], 'documents': docs};
+      notifyListeners();
+    }
+  }
+
   Future<Map<String, String>> startPayment(String transactionId) {
     return _repo.createCheckoutSession(
       transactionId: transactionId,

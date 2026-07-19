@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 import anthropic
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, Response, UploadFile, File
 from pydantic import BaseModel
 
 from db import get_supabase
@@ -393,6 +393,41 @@ async def get_agreement(unit_id: str) -> dict[str, Any]:
     if not res.data:
         raise HTTPException(status_code=404, detail="No agreement uploaded for this unit.")
     return res.data[0]
+
+
+@router.get("/{unit_id}/agreement/download")
+async def download_agreement(unit_id: str) -> Response:
+    """Streams the original agreement file through our own API instead of
+    handing the client a GCS URL — signed URLs embed the bucket, object
+    path (which leaks org/property ids), and a working credential, and
+    the ones stored in unit_agreements.file_url were minted once at
+    upload time so they're either stale or an unnecessarily long-lived
+    bearer link. This proxies the bytes fresh on every request instead."""
+    import gcs
+
+    sb = get_supabase()
+    res = (
+        sb.table("unit_agreements")
+        .select("storage_path, document_name, document_type")
+        .eq("unit_id", unit_id)
+        .execute()
+    )
+    if not res.data or not res.data[0].get("storage_path"):
+        raise HTTPException(status_code=404, detail="No agreement uploaded for this unit.")
+    row = res.data[0]
+
+    try:
+        file_bytes = gcs.download_bytes(row["storage_path"])
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not read document from storage: {exc}")
+
+    media_type = "application/pdf" if row.get("document_type") == "pdf" else "image/jpeg"
+    filename = row.get("document_name") or "agreement"
+    return Response(
+        content=file_bytes,
+        media_type=media_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.post("/import-pdf")

@@ -51,8 +51,8 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
   String? _uploadStatus;
 
   final _dateFmt = DateFormat('dd MMM yyyy');
-  final _numFmt = NumberFormat.currency(
-      symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+  final _numFmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
 
   @override
   void initState() {
@@ -61,7 +61,10 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
   }
 
   Future<void> _fetchAgreement() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final res = await ApiClient.properties
           .get('/api/v1/leasing/${widget.unitId}/agreement');
@@ -102,7 +105,10 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
     final contentType = _dioContentType(file.extension ?? 'pdf');
     final contentTypeStr = '${contentType.type}/${contentType.subtype}';
 
-    setState(() { _uploading = true; _uploadStatus = 'Requesting upload URL…'; });
+    setState(() {
+      _uploading = true;
+      _uploadStatus = 'Requesting upload URL…';
+    });
 
     try {
       // Step 1: ask the backend for a signed GCS upload URL. Uploading
@@ -156,7 +162,9 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
       setState(() {
         _uploading = false;
         _uploadStatus = null;
-        _error = (e.response?.data is Map ? e.response?.data['detail'] : null) ?? 'Upload failed.';
+        _error =
+            (e.response?.data is Map ? e.response?.data['detail'] : null) ??
+                'Upload failed.';
       });
     }
   }
@@ -169,7 +177,8 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
       'png': DioMediaType('image', 'png'),
       'webp': DioMediaType('image', 'webp'),
     };
-    return map[ext.toLowerCase()] ?? DioMediaType('application', 'octet-stream');
+    return map[ext.toLowerCase()] ??
+        DioMediaType('application', 'octet-stream');
   }
 
   @override
@@ -190,13 +199,16 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _Header(unitName: widget.unitName, onClose: () => Navigator.pop(context)),
+            _Header(
+                unitName: widget.unitName,
+                onClose: () => Navigator.pop(context)),
             Flexible(child: _body()),
-            if (widget.isAdmin) _Footer(
-              agreement: _agreement,
-              uploading: _uploading,
-              onUpload: _pickAndUpload,
-            ),
+            if (widget.isAdmin)
+              _Footer(
+                agreement: _agreement,
+                uploading: _uploading,
+                onUpload: _pickAndUpload,
+              ),
           ],
         ),
       ),
@@ -219,7 +231,8 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(_uploadStatus ?? 'Processing…',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
+                style:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 14)),
             const SizedBox(height: 8),
             const Text(
               'Claude is reading the document and extracting fields…',
@@ -269,7 +282,11 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
         ),
       );
     }
-    return _AgreementFields(agreement: _agreement!, dateFmt: _dateFmt, numFmt: _numFmt);
+    return _AgreementFields(
+        agreement: _agreement!,
+        dateFmt: _dateFmt,
+        numFmt: _numFmt,
+        unitId: widget.unitId);
   }
 }
 
@@ -284,9 +301,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-          AppDimensions.spaceLG, AppDimensions.spaceMD,
-          AppDimensions.spaceSM, AppDimensions.spaceMD),
+      padding: const EdgeInsets.fromLTRB(AppDimensions.spaceLG,
+          AppDimensions.spaceMD, AppDimensions.spaceSM, AppDimensions.spaceMD),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
@@ -344,22 +360,35 @@ class _Footer extends StatelessWidget {
       child: Row(
         children: [
           if (agreement != null)
-            Text(
-              'Uploaded: ${agreement!.documentName ?? 'document'}',
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.textMuted),
-            ),
-          const Spacer(),
+            Expanded(
+              child: Text(
+                'Uploaded: ${agreement!.documentName ?? 'document'}',
+                style:
+                    const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                overflow: TextOverflow.ellipsis,
+              ),
+            )
+          else
+            const Spacer(),
+          const SizedBox(width: AppDimensions.spaceSM),
+          TextButton(
+            onPressed: uploading ? null : () => Navigator.pop(context),
+            child: const Text('OK',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: AppDimensions.spaceSM),
           FilledButton.icon(
             onPressed: uploading ? null : onUpload,
             icon: const Icon(Icons.upload_file_outlined, size: 16),
-            label: Text(agreement == null ? 'Upload Agreement' : 'Replace Document'),
+            label: Text(
+                agreement == null ? 'Upload Agreement' : 'Replace Document'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.accentSilver,
               foregroundColor: AppColors.bgOuter,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              textStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600),
+              textStyle:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -375,11 +404,13 @@ class _AgreementFields extends StatelessWidget {
     required this.agreement,
     required this.dateFmt,
     required this.numFmt,
+    required this.unitId,
   });
 
   final UnitAgreement agreement;
   final DateFormat dateFmt;
   final NumberFormat numFmt;
+  final String unitId;
 
   @override
   Widget build(BuildContext context) {
@@ -404,30 +435,65 @@ class _AgreementFields extends StatelessWidget {
           _Section(
             title: 'Area',
             rows: [
-              _row('Total Area', a.totalAreaSqft != null ? '${a.totalAreaSqft!.toStringAsFixed(0)} sq.ft' : null),
-              _row('Covered Area', a.coveredAreaSqft != null ? '${a.coveredAreaSqft!.toStringAsFixed(0)} sq.ft' : null),
-              _row('Open Area', a.openAreaSqft != null ? '${a.openAreaSqft!.toStringAsFixed(0)} sq.ft' : null),
+              _row(
+                  'Total Area',
+                  a.totalAreaSqft != null
+                      ? '${a.totalAreaSqft!.toStringAsFixed(0)} sq.ft'
+                      : null),
+              _row(
+                  'Covered Area',
+                  a.coveredAreaSqft != null
+                      ? '${a.coveredAreaSqft!.toStringAsFixed(0)} sq.ft'
+                      : null),
+              _row(
+                  'Open Area',
+                  a.openAreaSqft != null
+                      ? '${a.openAreaSqft!.toStringAsFixed(0)} sq.ft'
+                      : null),
             ],
           ),
           const SizedBox(height: AppDimensions.spaceLG),
           _Section(
             title: 'Space & Amenities',
             rows: [
-              _row('Furnishing', a.furnishingLabel.isNotEmpty ? a.furnishingLabel : null),
-              _row('Car Parking', a.carParkingCount != null ? '${a.carParkingCount} space${a.carParkingCount == 1 ? '' : 's'}' : null),
-              if (a.amenities.isNotEmpty) _row('Other Amenities', a.amenities.join(', ')),
+              _row('Furnishing',
+                  a.furnishingLabel.isNotEmpty ? a.furnishingLabel : null),
+              _row(
+                  'Car Parking',
+                  a.carParkingCount != null
+                      ? '${a.carParkingCount} space${a.carParkingCount == 1 ? '' : 's'}'
+                      : null),
+              if (a.amenities.isNotEmpty)
+                _row('Other Amenities', a.amenities.join(', ')),
             ],
           ),
           const SizedBox(height: AppDimensions.spaceLG),
           _Section(
             title: 'Financials',
             rows: [
-              _row('Monthly Rent', a.monthlyRent != null ? numFmt.format(a.monthlyRent) : null),
-              _row('Monthly Maintenance', a.monthlyMaintenance != null ? numFmt.format(a.monthlyMaintenance) : null),
-              _row('Maintenance Paid By', a.maintenancePaidByLabel.isNotEmpty ? a.maintenancePaidByLabel : null),
-              _row('Security Deposit', a.securityDeposit != null ? numFmt.format(a.securityDeposit) : null),
+              _row('Monthly Rent',
+                  a.monthlyRent != null ? numFmt.format(a.monthlyRent) : null),
+              _row(
+                  'Monthly Maintenance',
+                  a.monthlyMaintenance != null
+                      ? numFmt.format(a.monthlyMaintenance)
+                      : null),
+              _row(
+                  'Maintenance Paid By',
+                  a.maintenancePaidByLabel.isNotEmpty
+                      ? a.maintenancePaidByLabel
+                      : null),
+              _row(
+                  'Security Deposit',
+                  a.securityDeposit != null
+                      ? numFmt.format(a.securityDeposit)
+                      : null),
               _row('Profit Sharing', a.profitSharing),
-              _row('Payment Due Day', a.paymentDueDay != null ? '${a.paymentDueDay}${_ordinal(a.paymentDueDay!)} of each month' : null),
+              _row(
+                  'Payment Due Day',
+                  a.paymentDueDay != null
+                      ? '${a.paymentDueDay}${_ordinal(a.paymentDueDay!)} of each month'
+                      : null),
               if (a.isGstApplicable) ...[
                 _row('CGST', a.cgstRate != null ? '${a.cgstRate}%' : null),
                 _row('SGST', a.sgstRate != null ? '${a.sgstRate}%' : null),
@@ -438,20 +504,38 @@ class _AgreementFields extends StatelessWidget {
           _Section(
             title: 'Lease Term',
             rows: [
-              _row('Start Date', a.leaseStartDate != null ? dateFmt.format(a.leaseStartDate!) : null),
-              _row('End Date', a.leaseEndDate != null ? dateFmt.format(a.leaseEndDate!) : null),
-              _row('Notice Period', a.noticePeriodDays != null ? '${a.noticePeriodDays} days' : null),
-              _row('Agreement Date', a.documentDate != null ? dateFmt.format(a.documentDate!) : null),
+              _row(
+                  'Start Date',
+                  a.leaseStartDate != null
+                      ? dateFmt.format(a.leaseStartDate!)
+                      : null),
+              _row(
+                  'End Date',
+                  a.leaseEndDate != null
+                      ? dateFmt.format(a.leaseEndDate!)
+                      : null),
+              _row(
+                  'Notice Period',
+                  a.noticePeriodDays != null
+                      ? '${a.noticePeriodDays} days'
+                      : null),
+              _row(
+                  'Agreement Date',
+                  a.documentDate != null
+                      ? dateFmt.format(a.documentDate!)
+                      : null),
             ],
           ),
           if (a.fileUrl != null) ...[
             const SizedBox(height: AppDimensions.spaceLG),
             InkWell(
-              onTap: () => launchUrlString(a.fileUrl!),
+              onTap: () => launchUrlString(
+                  '${ApiConfig.baseUrl}/api/v1/leasing/$unitId/agreement/download'),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.open_in_new, size: 14, color: AppColors.accentGold),
+                  Icon(Icons.open_in_new,
+                      size: 14, color: AppColors.accentGold),
                   SizedBox(width: 6),
                   Text('View original document',
                       style: TextStyle(
@@ -552,8 +636,7 @@ class _Section extends StatelessWidget {
                     final value = e.value['value'];
                     return Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.spaceMD,
-                          vertical: 10),
+                          horizontal: AppDimensions.spaceMD, vertical: 10),
                       decoration: isLast
                           ? null
                           : const BoxDecoration(
@@ -565,15 +648,18 @@ class _Section extends StatelessWidget {
                             width: 180,
                             child: Text(e.value['label']!,
                                 style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.textMuted)),
+                                    fontSize: 13, color: AppColors.textMuted)),
                           ),
                           Expanded(
                             child: Text(value ?? '—',
                                 style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: value != null ? FontWeight.w600 : FontWeight.w400,
-                                    color: value != null ? AppColors.textPrimary : AppColors.textMuted)),
+                                    fontWeight: value != null
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: value != null
+                                        ? AppColors.textPrimary
+                                        : AppColors.textMuted)),
                           ),
                         ],
                       ),

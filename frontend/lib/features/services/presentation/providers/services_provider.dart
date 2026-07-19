@@ -30,7 +30,10 @@ class ServicesProvider extends ChangeNotifier {
     error = null;
     notifyListeners();
     await Future.wait([
-      _repo.listRequests().then((v) => requests = v).catchError((_) => requests = []),
+      _repo
+          .listRequests()
+          .then((v) => requests = v)
+          .catchError((_) => requests = []),
       _repo.getUnits().then((v) => units = v).catchError((_) => units = []),
     ]);
     isLoading = false;
@@ -58,6 +61,9 @@ class ServicesProvider extends ChangeNotifier {
     String? serviceName,
     String? description,
     String priority = 'normal',
+    String? expensesBorneBy,
+    double? estimatedCost,
+    DateTime? initiatedDate,
   }) async {
     final r = await _repo.createAdminRequest(
       leasingUnitId: leasingUnitId,
@@ -65,16 +71,56 @@ class ServicesProvider extends ChangeNotifier {
       serviceName: serviceName,
       description: description,
       priority: priority,
+      expensesBorneBy: expensesBorneBy,
+      estimatedCost: estimatedCost,
+      initiatedDate: initiatedDate,
     );
     requests = [r, ...requests];
     notifyListeners();
   }
 
   Future<void> updateStatus(String id, String status) async {
-    await _repo.updateRequest(id, {'status': status});
+    final updated = await _repo.updateRequest(id, {'status': status});
     final idx = requests.indexWhere((r) => r['id'] == id);
     if (idx != -1) {
-      requests[idx] = {...requests[idx], 'status': status};
+      requests[idx] = {...requests[idx], ...updated};
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateDetails(String id, Map<String, dynamic> updates) async {
+    final updated = await _repo.updateRequest(id, updates);
+    final idx = requests.indexWhere((r) => r['id'] == id);
+    if (idx != -1) {
+      requests[idx] = {...requests[idx], ...updated};
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadDocument(
+      String requestId, Uint8List bytes, String filename) async {
+    final doc = await _repo.uploadDocument(requestId, bytes, filename);
+    final idx = requests.indexWhere((r) => r['id'] == requestId);
+    if (idx != -1) {
+      final docs = List<Map<String, dynamic>>.from(
+          requests[idx]['documents'] as List? ?? []);
+      requests[idx] = {
+        ...requests[idx],
+        'documents': [...docs, doc],
+      };
+      notifyListeners();
+    }
+    return doc;
+  }
+
+  Future<void> deleteDocument(String requestId, String documentId) async {
+    await _repo.deleteDocument(requestId, documentId);
+    final idx = requests.indexWhere((r) => r['id'] == requestId);
+    if (idx != -1) {
+      final docs = List<Map<String, dynamic>>.from(
+          requests[idx]['documents'] as List? ?? []);
+      docs.removeWhere((d) => d['id'] == documentId);
+      requests[idx] = {...requests[idx], 'documents': docs};
       notifyListeners();
     }
   }

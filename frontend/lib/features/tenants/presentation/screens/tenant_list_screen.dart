@@ -13,16 +13,25 @@ import '../../../../core/utils/export_helper.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../invoices/presentation/invoice_generator_dialog.dart';
+import '../../../listings/presentation/providers/listings_provider.dart';
+import '../../../listings/presentation/widgets/platform_picker_dialog.dart';
 import '../../../properties/domain/entities/leasing_unit.dart';
 import '../../../properties/domain/entities/unit_agreement.dart';
 import '../../../properties/presentation/providers/leasing_provider.dart';
 import '../../../properties/presentation/widgets/leasing_form_dialog.dart';
+import '../../../properties/presentation/widgets/unit_agreement_dialog.dart';
 import '../../domain/entities/tenant.dart';
 import '../providers/tenants_provider.dart';
 import '../widgets/tenant_form_dialog.dart';
 
 class TenantListScreen extends StatefulWidget {
-  const TenantListScreen({super.key});
+  const TenantListScreen({super.key, this.initialUnit});
+
+  /// Pre-selects a property's tenant view — set when navigating here from
+  /// the Properties screen (clicking a property should show its tenants,
+  /// not require a second click).
+  final LeasingUnit? initialUnit;
 
   @override
   State<TenantListScreen> createState() => _TenantListScreenState();
@@ -35,6 +44,7 @@ class _TenantListScreenState extends State<TenantListScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedUnit = widget.initialUnit;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TenantsProvider>().loadTenants();
       context.read<LeasingProvider>().load();
@@ -76,24 +86,12 @@ class _TenantListScreenState extends State<TenantListScreen> {
     downloadCsv(csv, 'tenants_${DateTime.now().millisecondsSinceEpoch}.csv');
   }
 
-  Future<void> _openAddTenant() async {
-    final lp = context.read<LeasingProvider>();
-    final tp = context.read<TenantsProvider>();
-    if (lp.units.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one property first.')),
-      );
-      return;
-    }
-    final data = await showTenantForm(
-      context,
-      units: lp.units,
-      preselectedUnit: _selectedUnit,
-    );
-    if (data != null && mounted) {
-      await tp.createTenant(data);
-    }
-  }
+  /// The single tenant-details form for a property — only one tenant
+  /// contact is supported per property, so this either creates the first
+  /// one (existing == null) or edits the one that's already there.
+  Future<void> _openEditTenantDetails(LeasingUnit unit, Tenant? existing) =>
+      editTenant(context,
+          units: [unit], preselectedUnit: unit, existingTenant: existing);
 
   Future<void> _confirmDeleteTenant(Tenant tenant) async {
     final ok = await showDialog<bool>(
@@ -168,11 +166,50 @@ class _TenantListScreenState extends State<TenantListScreen> {
     }
   }
 
+  void _generateInvoice(LeasingUnit unit) {
+    InvoiceGeneratorDialog.show(context, unit);
+  }
+
+  void _viewAgreement(LeasingUnit unit) {
+    UnitAgreementDialog.show(
+      context,
+      unitId: unit.id,
+      unitName: unit.name,
+      isAdmin: true,
+    );
+  }
+
+  Future<void> _publishUnit(LeasingUnit unit) async {
+    final selected = await PlatformPickerDialog.show(context, unit.id);
+    if (selected == null || selected.isEmpty || !mounted) return;
+    try {
+      await context.read<ListingsProvider>().triggerAgent(unit.id, selected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Publishing "${unit.name}" to ${selected.length} platform${selected.length == 1 ? '' : 's'}…',
+            ),
+            backgroundColor: AppColors.cardBg,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to trigger agent')),
+        );
+      }
+    }
+  }
+
   Future<void> _openAssignProperty(
       Tenant tenant, List<LeasingUnit> units) async {
     if (units.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a property first.')),
+        const SnackBar(
+            content: Text(
+                'No properties available — every property already has a tenant.')),
       );
       return;
     }
@@ -217,6 +254,7 @@ class _TenantListScreenState extends State<TenantListScreen> {
       await context
           .read<TenantsProvider>()
           .updateTenant(tenant.id, {'leasing_unit_id': unitId});
+      if (mounted) await markPropertyOccupiedIfVacant(context, unitId);
     }
   }
 
@@ -236,10 +274,14 @@ class _TenantListScreenState extends State<TenantListScreen> {
             tenants: unitTenants,
             isLoading: tp.isLoading,
             onBack: () => setState(() => _selectedUnit = null),
-            onAddTenant: _openAddTenant,
+            onEditTenantDetails: (existing) =>
+                _openEditTenantDetails(unit, existing),
             onDeleteTenant: _confirmDeleteTenant,
             onDeleteProperty: _confirmDeleteProperty,
             onEditProperty: _openEditProperty,
+            onPublish: _publishUnit,
+            onGenerateInvoice: _generateInvoice,
+            onViewAgreement: _viewAgreement,
           );
         }
 
@@ -258,7 +300,18 @@ class _TenantListScreenState extends State<TenantListScreen> {
             isLoading: tp.isLoading,
             onBack: () => setState(() => _showUnassigned = false),
             onDeleteTenant: _confirmDeleteTenant,
-            onAssignProperty: (t) => _openAssignProperty(t, lp.units),
+            onAssignProperty: (t) {
+              // Only one tenant contact is supported per property, so
+              // properties that already have one aren't offered here.
+              final occupiedUnitIds = tp.tenants
+                  .where((x) => x.unitId != null && x.unitId!.isNotEmpty)
+                  .map((x) => x.unitId)
+                  .toSet();
+              final availableUnits = lp.units
+                  .where((u) => !occupiedUnitIds.contains(u.id))
+                  .toList();
+              _openAssignProperty(t, availableUnits);
+            },
           );
         }
 
@@ -409,20 +462,30 @@ class _PropertyTenantsView extends StatelessWidget {
     required this.tenants,
     required this.isLoading,
     required this.onBack,
-    required this.onAddTenant,
+    required this.onEditTenantDetails,
     required this.onDeleteTenant,
     required this.onDeleteProperty,
     required this.onEditProperty,
+    required this.onPublish,
+    required this.onGenerateInvoice,
+    required this.onViewAgreement,
   });
 
   final LeasingUnit unit;
   final List<Tenant> tenants;
   final bool isLoading;
   final VoidCallback onBack;
-  final VoidCallback onAddTenant;
+
+  /// Opens the single tenant-details form for this property — blank
+  /// (creates) if [tenants] is empty, pre-filled (updates) otherwise.
+  /// Only one tenant contact is supported per property.
+  final ValueChanged<Tenant?> onEditTenantDetails;
   final ValueChanged<Tenant> onDeleteTenant;
   final ValueChanged<LeasingUnit> onDeleteProperty;
   final ValueChanged<LeasingUnit> onEditProperty;
+  final ValueChanged<LeasingUnit> onPublish;
+  final ValueChanged<LeasingUnit> onGenerateInvoice;
+  final ValueChanged<LeasingUnit> onViewAgreement;
 
   @override
   Widget build(BuildContext context) {
@@ -468,6 +531,30 @@ class _PropertyTenantsView extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                // Publish to platforms
+                _HeaderActionBtn(
+                  tooltip: 'Publish to platforms',
+                  icon: Icons.language_outlined,
+                  color: AppColors.accentGold,
+                  enabled: unit.status == 'vacant',
+                  onTap: () => onPublish(unit),
+                ),
+                // Generate invoice
+                _HeaderActionBtn(
+                  tooltip: 'Generate Invoice',
+                  icon: Icons.receipt_long_outlined,
+                  color: AppColors.accentGold,
+                  enabled:
+                      unit.status == 'occupied' || unit.status == 'in_house',
+                  onTap: () => onGenerateInvoice(unit),
+                ),
+                // Agreement details
+                _HeaderActionBtn(
+                  tooltip: 'Agreement Details',
+                  icon: Icons.info_outline_rounded,
+                  color: AppColors.info,
+                  onTap: () => onViewAgreement(unit),
+                ),
                 // Edit property
                 Tooltip(
                   message: 'Edit property',
@@ -504,9 +591,10 @@ class _PropertyTenantsView extends StatelessWidget {
                 ),
                 const SizedBox(width: AppDimensions.spaceSM),
                 AppButton(
-                  label: AppStrings.addTenant,
-                  icon: Icons.person_add_outlined,
-                  onPressed: onAddTenant,
+                  label: 'Edit Tenant Details',
+                  icon: Icons.edit_outlined,
+                  onPressed: () => onEditTenantDetails(
+                      tenants.isNotEmpty ? tenants.first : null),
                 ),
               ],
             ),
@@ -530,7 +618,9 @@ class _PropertyTenantsView extends StatelessWidget {
             _UnitTenantInfoCard(unit: unit),
             const SizedBox(height: AppDimensions.spaceLG),
 
-            // ── Named contacts (formal Tenant records), if any ───────
+            // ── Named contact (a single formal Tenant record), if any ──
+            // Only one tenant contact is supported per property — this
+            // property either has one or it doesn't.
             if (isLoading)
               const Center(
                 child: Padding(
@@ -539,19 +629,59 @@ class _PropertyTenantsView extends StatelessWidget {
                 ),
               )
             else if (tenants.isNotEmpty) ...[
-              const Text('Contacts',
+              const Text('Contact',
                   style: TextStyle(
                       fontSize: AppDimensions.fontH3,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary)),
               const SizedBox(height: AppDimensions.spaceSM),
               _TenantVCardGrid(
-                tenants: tenants,
+                tenants: [tenants.first],
                 onDelete: onDeleteTenant,
                 propertyName: unit.name,
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Breadcrumb header action icon (Publish / Invoice / Agreement) ─────
+
+class _HeaderActionBtn extends StatelessWidget {
+  const _HeaderActionBtn({
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+    this.color,
+    this.enabled = true,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final Color? color;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: enabled ? onTap : null,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Padding(
+            padding: const EdgeInsets.all(AppDimensions.spaceXS),
+            child: Icon(icon,
+                size: AppDimensions.iconMD,
+                color: enabled
+                    ? (color ?? AppColors.textMuted)
+                    : AppColors.textMuted),
+          ),
         ),
       ),
     );
@@ -751,7 +881,8 @@ class _UnitTenantInfoCardState extends State<_UnitTenantInfoCard> {
             if (a.fileUrl != null) ...[
               const SizedBox(height: AppDimensions.spaceMD),
               GestureDetector(
-                onTap: () => launchUrlString(a.fileUrl!),
+                onTap: () => launchUrlString(
+                    '${ApiConfig.baseUrl}/api/v1/leasing/${unit.id}/agreement/download'),
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: const Row(

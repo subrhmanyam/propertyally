@@ -27,10 +27,7 @@ class CalendarProvider extends BaseProvider {
 
   List<CalendarEvent> get upcomingEvents {
     final now = DateTime.now();
-    return _events
-        .where((e) => e.startAt.isAfter(now))
-        .take(10)
-        .toList()
+    return _events.where((e) => e.startAt.isAfter(now)).take(10).toList()
       ..sort((a, b) => a.startAt.compareTo(b.startAt));
   }
 

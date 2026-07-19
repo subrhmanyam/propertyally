@@ -74,7 +74,11 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                 else
                   _PropertyGrid(
                     properties: provider.properties,
-                    crossAxisCount: isDesktop ? 3 : isMobile ? 1 : 2,
+                    crossAxisCount: isDesktop
+                        ? 3
+                        : isMobile
+                            ? 1
+                            : 2,
                   ),
               ],
             ),
@@ -435,7 +439,9 @@ class _PlaceholderThumb extends StatelessWidget {
             top: AppDimensions.spaceSM,
             right: AppDimensions.spaceSM,
             child: StatusBadge(
-              status: property.isActive ? PropertyStatus.occupied : PropertyStatus.vacant,
+              status: property.isActive
+                  ? PropertyStatus.occupied
+                  : PropertyStatus.vacant,
             ),
           ),
         ],

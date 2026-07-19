@@ -132,8 +132,8 @@ class _TenantMessagesScreenState extends State<TenantMessagesScreen> {
             const SizedBox(height: AppDimensions.spaceXL),
             if (p.isLoading)
               const Center(
-                  child: CircularProgressIndicator(
-                      color: AppColors.accentSilver))
+                  child:
+                      CircularProgressIndicator(color: AppColors.accentSilver))
             else if (p.queries.isEmpty)
               const Center(
                   child: Text('No messages yet.',
@@ -173,8 +173,7 @@ class _QueryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = query['status'] as String? ?? 'open';
-    final replies =
-        (query['tenant_query_replies'] as List?)?.length ?? 0;
+    final replies = (query['tenant_query_replies'] as List?)?.length ?? 0;
 
     return GestureDetector(
       onTap: onTap,
@@ -275,8 +274,9 @@ class _QueryThreadState extends State<_QueryThread> {
     final queryId = widget.query['id'] as String;
     final fresh = widget.provider.queries
         .firstWhere((q) => q['id'] == queryId, orElse: () => widget.query);
-    final replies =
-        (fresh['tenant_query_replies'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final replies = (fresh['tenant_query_replies'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,8 +285,7 @@ class _QueryThreadState extends State<_QueryThread> {
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back,
-                  color: AppColors.textMuted),
+              icon: const Icon(Icons.arrow_back, color: AppColors.textMuted),
               onPressed: widget.onBack,
             ),
             Expanded(
@@ -347,10 +346,8 @@ class _QueryThreadState extends State<_QueryThread> {
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.accentSilver))
-                    : const Icon(Icons.send,
-                        color: AppColors.accentSilver),
+                            strokeWidth: 2, color: AppColors.accentSilver))
+                    : const Icon(Icons.send, color: AppColors.accentSilver),
                 onPressed: _sending ? null : _send,
               ),
             ],
@@ -392,17 +389,14 @@ class _Bubble extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: isAdmin
-                    ? AppColors.accentGold
-                    : AppColors.accentSilver,
+                color: isAdmin ? AppColors.accentGold : AppColors.accentSilver,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               body,
               style: const TextStyle(
-                  fontSize: AppDimensions.fontSM,
-                  color: AppColors.textPrimary),
+                  fontSize: AppDimensions.fontSM, color: AppColors.textPrimary),
             ),
           ],
         ),
@@ -428,19 +422,18 @@ class _StatusBadge extends StatelessWidget {
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
       child: Text(status.toUpperCase(),
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+          style:
+              TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
     );
   }
 }
 
 InputDecoration _dec(String hint) => InputDecoration(
       hintText: hint,
-      hintStyle:
-          const TextStyle(color: AppColors.textMuted, fontSize: 13),
+      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
       filled: true,
       fillColor: AppColors.pageBg,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderSide: const BorderSide(color: AppColors.border),
         borderRadius: BorderRadius.circular(AppDimensions.radiusXS),

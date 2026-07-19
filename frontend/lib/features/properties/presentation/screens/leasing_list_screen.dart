@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -64,7 +65,8 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
   Future<void> _archiveImportFile(Uint8List bytes, String filename) async {
     final orgId = await getCurrentOrgId();
     if (orgId == null) {
-      debugPrint('GCS archive skipped for "$filename": no org for current user.');
+      debugPrint(
+          'GCS archive skipped for "$filename": no org for current user.');
       return;
     }
     // The real object path (with its server-generated uuid prefix) is only
@@ -77,12 +79,15 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
         'doc_type': 'import',
         'org_id': orgId,
       });
-      final resp = await ApiClient.properties.post('/api/v1/documents/upload', data: formData);
+      final resp = await ApiClient.properties
+          .post('/api/v1/documents/upload', data: formData);
       final storagePath = (resp.data as Map?)?['storage_path'];
       debugPrint('GCS archive OK for "$filename": $storagePath');
     } catch (e) {
-      debugPrint('GCS archive FAILED for "$filename" (intended path: $intendedPath): $e');
-      if (mounted) _showSnack('Imported, but could not archive the original file.');
+      debugPrint(
+          'GCS archive FAILED for "$filename" (intended path: $intendedPath): $e');
+      if (mounted)
+        _showSnack('Imported, but could not archive the original file.');
     }
   }
 
@@ -99,7 +104,10 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
 
     if (ext == 'pdf') {
       final bytes = file.bytes;
-      if (bytes == null) { _showSnack('Could not read file bytes.'); return; }
+      if (bytes == null) {
+        _showSnack('Could not read file bytes.');
+        return;
+      }
       _showSnack('Parsing PDF with AI… this may take a few seconds.');
       try {
         final formData = FormData.fromMap({
@@ -138,15 +146,20 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
         final rawName = file.name;
         final companyName = parsed.first.companyName.isNotEmpty
             ? parsed.first.companyName
-            : (rawName.contains('.') ? rawName.substring(0, rawName.lastIndexOf('.')).trim() : rawName.trim());
+            : (rawName.contains('.')
+                ? rawName.substring(0, rawName.lastIndexOf('.')).trim()
+                : rawName.trim());
         final confirmed = await _showImportPreview(parsed, companyName);
         if (confirmed == true && mounted) {
-          await context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
+          await context
+              .read<LeasingProvider>()
+              .addImported(parsed, companyName: companyName);
           await _archiveImportFile(bytes, file.name);
           if (mounted) _showSnack('${parsed.length} units imported from PDF.');
         }
       } on DioException catch (e) {
-        if (mounted) _showSnack('PDF import failed: ${e.response?.data ?? e.message}');
+        if (mounted)
+          _showSnack('PDF import failed: ${e.response?.data ?? e.message}');
       }
       return;
     }
@@ -156,12 +169,16 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     }
 
     final bytes = file.bytes;
-    if (bytes == null) { _showSnack('Could not read file bytes.'); return; }
+    if (bytes == null) {
+      _showSnack('Could not read file bytes.');
+      return;
+    }
 
     final parsed = parseExcelBytes(bytes);
     if (!mounted) return;
     if (parsed.isEmpty) {
-      _showSnack('Could not parse the Excel file. Make sure it follows the expected format.');
+      _showSnack(
+          'Could not parse the Excel file. Make sure it follows the expected format.');
       return;
     }
 
@@ -174,14 +191,19 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
 
     final confirmed = await _showImportPreview(parsed, companyName);
     if (confirmed == true && mounted) {
-      await context.read<LeasingProvider>().addImported(parsed, companyName: companyName);
+      await context
+          .read<LeasingProvider>()
+          .addImported(parsed, companyName: companyName);
       await _archiveImportFile(bytes, file.name);
-      if (mounted) _showSnack('${parsed.length} units imported under "$companyName".');
+      if (mounted)
+        _showSnack('${parsed.length} units imported under "$companyName".');
     }
   }
 
-  Future<bool?> _showImportPreview(List<LeasingUnit> units, String companyName) {
-    final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+  Future<bool?> _showImportPreview(
+      List<LeasingUnit> units, String companyName) {
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     return showDialog<bool>(
       context: context,
       useRootNavigator: true,
@@ -266,10 +288,31 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
 
   void _exportCsv() {
     final units = context.read<LeasingProvider>().units;
-    if (units.isEmpty) { _showSnack('No properties to export.'); return; }
+    if (units.isEmpty) {
+      _showSnack('No properties to export.');
+      return;
+    }
     final csv = buildCsv(
-      ['ID', 'Name', 'Portfolio', 'Category', 'Floor', 'Status', 'Total Rent (₹)'],
-      units.map((u) => [u.id, u.name, u.companyName, u.category, u.floor, u.status, u.totalRent]).toList(),
+      [
+        'ID',
+        'Name',
+        'Portfolio',
+        'Category',
+        'Floor',
+        'Status',
+        'Total Rent (₹)'
+      ],
+      units
+          .map((u) => [
+                u.id,
+                u.name,
+                u.companyName,
+                u.category,
+                u.floor,
+                u.status,
+                u.totalRent
+              ])
+          .toList(),
     );
     downloadCsv(csv, 'properties_${DateTime.now().millisecondsSinceEpoch}.csv');
   }
@@ -277,8 +320,8 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message,
-            style: const TextStyle(color: AppColors.textPrimary)),
+        content:
+            Text(message, style: const TextStyle(color: AppColors.textPrimary)),
         backgroundColor: AppColors.cardBg,
         behavior: SnackBarBehavior.floating,
       ),
@@ -297,6 +340,10 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
     if (result != null && mounted) {
       await context.read<LeasingProvider>().update(result);
     }
+  }
+
+  void _viewTenants(LeasingUnit unit) {
+    context.go('/tenants', extra: unit);
   }
 
   void _generateInvoice(LeasingUnit unit) {
@@ -386,8 +433,8 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.error)),
+            child:
+                const Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -416,6 +463,7 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
             onPublish: _publishUnit,
             onGenerateInvoice: _generateInvoice,
             onViewAgreement: _viewAgreement,
+            onViewTenants: _viewTenants,
           );
         }
         // Otherwise → show company portfolio cards
@@ -452,7 +500,8 @@ class _CompanyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     final isMobile = Responsive.isMobile(context);
 
     return SingleChildScrollView(
@@ -577,7 +626,8 @@ class _PortfolioKpiRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     final isMobile = Responsive.isMobile(context);
 
     final values = [
@@ -606,7 +656,8 @@ class _PortfolioKpiRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icons[i], size: AppDimensions.iconMD, color: AppColors.accentGold),
+                Icon(icons[i],
+                    size: AppDimensions.iconMD, color: AppColors.accentGold),
                 const SizedBox(height: AppDimensions.spaceSM),
                 Text(values[i],
                     style: const TextStyle(
@@ -656,7 +707,8 @@ class _CompanyCardState extends State<_CompanyCard> {
   @override
   Widget build(BuildContext context) {
     final s = widget.summary;
-    final occupancyPct = s.totalUnits == 0 ? 0.0 : s.occupiedCount / s.totalUnits;
+    final occupancyPct =
+        s.totalUnits == 0 ? 0.0 : s.occupiedCount / s.totalUnits;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -685,10 +737,12 @@ class _CompanyCardState extends State<_CompanyCard> {
                     height: 40,
                     decoration: BoxDecoration(
                       color: AppColors.accentGoldDark,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusSM),
                     ),
                     child: const Icon(Icons.domain,
-                        color: AppColors.accentGold, size: AppDimensions.iconLG),
+                        color: AppColors.accentGold,
+                        size: AppDimensions.iconLG),
                   ),
                   const SizedBox(width: AppDimensions.spaceMD),
                   Expanded(
@@ -756,15 +810,27 @@ class _CompanyCardState extends State<_CompanyCard> {
               // ── Occupancy stats ──
               Row(
                 children: [
-                  _StatPill(label: 'Occupied', value: s.occupiedCount, color: AppColors.success),
+                  _StatPill(
+                      label: 'Occupied',
+                      value: s.occupiedCount,
+                      color: AppColors.success),
                   const SizedBox(width: AppDimensions.spaceSM),
-                  _StatPill(label: 'Vacant', value: s.vacantCount, color: AppColors.textMuted),
+                  _StatPill(
+                      label: 'Vacant',
+                      value: s.vacantCount,
+                      color: AppColors.textMuted),
                   const SizedBox(width: AppDimensions.spaceSM),
                   if (s.inHouseCount > 0)
-                    _StatPill(label: 'In-house', value: s.inHouseCount, color: AppColors.info),
+                    _StatPill(
+                        label: 'In-house',
+                        value: s.inHouseCount,
+                        color: AppColors.info),
                   if (s.ownerOccupiedCount > 0) ...[
                     const SizedBox(width: AppDimensions.spaceSM),
-                    _StatPill(label: 'Owner', value: s.ownerOccupiedCount, color: AppColors.accentGold),
+                    _StatPill(
+                        label: 'Owner',
+                        value: s.ownerOccupiedCount,
+                        color: AppColors.accentGold),
                   ],
                 ],
               ),
@@ -777,7 +843,8 @@ class _CompanyCardState extends State<_CompanyCard> {
                   value: occupancyPct,
                   minHeight: 4,
                   backgroundColor: AppColors.border,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.success),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(AppColors.success),
                 ),
               ),
               const SizedBox(height: AppDimensions.spaceXS),
@@ -843,6 +910,7 @@ class _UnitsView extends StatelessWidget {
     required this.onPublish,
     required this.onGenerateInvoice,
     required this.onViewAgreement,
+    required this.onViewTenants,
   });
 
   final LeasingProvider provider;
@@ -855,12 +923,14 @@ class _UnitsView extends StatelessWidget {
   final ValueChanged<LeasingUnit> onPublish;
   final ValueChanged<LeasingUnit> onGenerateInvoice;
   final ValueChanged<LeasingUnit> onViewAgreement;
+  final ValueChanged<LeasingUnit> onViewTenants;
 
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final summary = provider.selectedCompanySummary;
-    final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
 
     return SingleChildScrollView(
       child: Padding(
@@ -887,7 +957,8 @@ class _UnitsView extends StatelessWidget {
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
                     child: Text('/',
-                        style: TextStyle(color: AppColors.textMuted,
+                        style: TextStyle(
+                            color: AppColors.textMuted,
                             fontSize: AppDimensions.fontSM)),
                   ),
                   Text(
@@ -989,6 +1060,7 @@ class _UnitsView extends StatelessWidget {
                 onPublish: onPublish,
                 onGenerateInvoice: onGenerateInvoice,
                 onViewAgreement: onViewAgreement,
+                onViewTenants: onViewTenants,
               )
             else
               _UnitTable(
@@ -998,6 +1070,7 @@ class _UnitsView extends StatelessWidget {
                 onPublish: onPublish,
                 onGenerateInvoice: onGenerateInvoice,
                 onViewAgreement: onViewAgreement,
+                onViewTenants: onViewTenants,
               ),
           ],
         ),
@@ -1014,7 +1087,8 @@ class _UnitsKpiRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summary = provider.selectedCompanySummary;
-    final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     final isMobile = Responsive.isMobile(context);
 
     final values = [
@@ -1043,7 +1117,8 @@ class _UnitsKpiRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icons[i], size: AppDimensions.iconMD, color: AppColors.accentGold),
+                Icon(icons[i],
+                    size: AppDimensions.iconMD, color: AppColors.accentGold),
                 const SizedBox(height: AppDimensions.spaceSM),
                 Text(values[i],
                     style: const TextStyle(
@@ -1140,10 +1215,18 @@ class _FilterRow extends StatelessWidget {
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [chips, const SizedBox(height: AppDimensions.spaceSM), search],
+        children: [
+          chips,
+          const SizedBox(height: AppDimensions.spaceSM),
+          search
+        ],
       );
     }
-    return Row(children: [Expanded(child: chips), const SizedBox(width: AppDimensions.spaceMD), search]);
+    return Row(children: [
+      Expanded(child: chips),
+      const SizedBox(width: AppDimensions.spaceMD),
+      search
+    ]);
   }
 }
 
@@ -1157,6 +1240,7 @@ class _UnitTable extends StatelessWidget {
     required this.onPublish,
     required this.onGenerateInvoice,
     required this.onViewAgreement,
+    required this.onViewTenants,
   });
 
   final List<LeasingUnit> units;
@@ -1165,6 +1249,7 @@ class _UnitTable extends StatelessWidget {
   final ValueChanged<LeasingUnit> onPublish;
   final ValueChanged<LeasingUnit> onGenerateInvoice;
   final ValueChanged<LeasingUnit> onViewAgreement;
+  final ValueChanged<LeasingUnit> onViewTenants;
 
   @override
   Widget build(BuildContext context) {
@@ -1206,6 +1291,7 @@ class _UnitTable extends StatelessWidget {
                 onPublish: onPublish,
                 onGenerateInvoice: onGenerateInvoice,
                 onViewAgreement: onViewAgreement,
+                onViewTenants: onViewTenants,
               )),
         ],
       ),
@@ -1245,6 +1331,7 @@ class _UnitRow extends StatefulWidget {
     required this.onPublish,
     required this.onGenerateInvoice,
     required this.onViewAgreement,
+    required this.onViewTenants,
   });
 
   final LeasingUnit unit;
@@ -1254,6 +1341,7 @@ class _UnitRow extends StatefulWidget {
   final ValueChanged<LeasingUnit> onPublish;
   final ValueChanged<LeasingUnit> onGenerateInvoice;
   final ValueChanged<LeasingUnit> onViewAgreement;
+  final ValueChanged<LeasingUnit> onViewTenants;
 
   @override
   State<_UnitRow> createState() => _UnitRowState();
@@ -1261,7 +1349,8 @@ class _UnitRow extends StatefulWidget {
 
 class _UnitRowState extends State<_UnitRow> {
   bool _hovered = false;
-  final _fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+  final _fmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
 
   @override
   Widget build(BuildContext context) {
@@ -1271,7 +1360,7 @@ class _UnitRowState extends State<_UnitRow> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () => widget.onEdit(u),
+        onTap: () => widget.onViewTenants(u),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
@@ -1363,7 +1452,8 @@ class _UnitRowState extends State<_UnitRow> {
                       child: _ActionBtn(
                         icon: Icons.receipt_long_outlined,
                         color: AppColors.accentGold,
-                        enabled: u.status == 'occupied' || u.status == 'in_house',
+                        enabled:
+                            u.status == 'occupied' || u.status == 'in_house',
                         onTap: () => widget.onGenerateInvoice(u),
                       ),
                     ),
@@ -1416,9 +1506,8 @@ class _ActionBtn extends StatelessWidget {
         padding: const EdgeInsets.all(AppDimensions.spaceSM),
         child: Icon(icon,
             size: AppDimensions.iconMD,
-            color: enabled
-                ? (color ?? AppColors.textMuted)
-                : AppColors.textMuted),
+            color:
+                enabled ? (color ?? AppColors.textMuted) : AppColors.textMuted),
       ),
     );
   }
@@ -1434,6 +1523,7 @@ class _UnitCardList extends StatelessWidget {
     required this.onPublish,
     required this.onGenerateInvoice,
     required this.onViewAgreement,
+    required this.onViewTenants,
   });
 
   final List<LeasingUnit> units;
@@ -1442,102 +1532,108 @@ class _UnitCardList extends StatelessWidget {
   final ValueChanged<LeasingUnit> onPublish;
   final ValueChanged<LeasingUnit> onGenerateInvoice;
   final ValueChanged<LeasingUnit> onViewAgreement;
+  final ValueChanged<LeasingUnit> onViewTenants;
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final fmt =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     return Column(
       children: units.map((u) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: AppDimensions.spaceSM),
-          decoration: BoxDecoration(
-            color: AppColors.cardBg,
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.spaceMD,
-                vertical: AppDimensions.spaceSM),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Name + rent ──────────────────────────────────
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _UnitThumb(photos: u.photos),
-                    const SizedBox(width: AppDimensions.spaceSM),
-                    Expanded(
-                      child: Text(u.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                              fontSize: AppDimensions.fontBase)),
-                    ),
-                    const SizedBox(width: AppDimensions.spaceSM),
-                    Text(
-                      u.totalRent > 0 ? fmt.format(u.totalRent) : '—',
-                      style: const TextStyle(
-                          color: AppColors.accentGold,
-                          fontWeight: FontWeight.w700,
-                          fontSize: AppDimensions.fontBase),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                // ── Category/floor + status ──────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text('${u.category}  •  ${u.floor}',
-                          style: const TextStyle(
-                              fontSize: AppDimensions.fontSM,
-                              color: AppColors.textMuted),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    const SizedBox(width: AppDimensions.spaceSM),
-                    _StatusBadge(status: u.status),
-                  ],
-                ),
-                const SizedBox(height: AppDimensions.spaceSM),
-                const Divider(height: 1, color: AppColors.border),
-                const SizedBox(height: AppDimensions.spaceXS),
-                // ── Actions row — below name/description ─────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _ActionBtn(
-                      icon: Icons.language_outlined,
-                      color: AppColors.accentGold,
-                      enabled: u.status == 'vacant',
-                      onTap: () => onPublish(u),
-                    ),
-                    _ActionBtn(
-                      icon: Icons.receipt_long_outlined,
-                      color: AppColors.accentGold,
-                      enabled: u.status == 'occupied' || u.status == 'in_house',
-                      onTap: () => onGenerateInvoice(u),
-                    ),
-                    _ActionBtn(
-                      icon: Icons.info_outline_rounded,
-                      color: AppColors.info,
-                      onTap: () => onViewAgreement(u),
-                    ),
-                    _ActionBtn(
-                      icon: Icons.edit_outlined,
-                      color: Colors.white,
-                      onTap: () => onEdit(u),
-                    ),
-                    _ActionBtn(
-                      icon: Icons.delete_outline,
-                      color: AppColors.error,
-                      onTap: () => onDelete(u),
-                    ),
-                  ],
-                ),
-              ],
+        return GestureDetector(
+          onTap: () => onViewTenants(u),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: AppDimensions.spaceSM),
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimensions.spaceMD,
+                  vertical: AppDimensions.spaceSM),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Name + rent ──────────────────────────────────
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _UnitThumb(photos: u.photos),
+                      const SizedBox(width: AppDimensions.spaceSM),
+                      Expanded(
+                        child: Text(u.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                                fontSize: AppDimensions.fontBase)),
+                      ),
+                      const SizedBox(width: AppDimensions.spaceSM),
+                      Text(
+                        u.totalRent > 0 ? fmt.format(u.totalRent) : '—',
+                        style: const TextStyle(
+                            color: AppColors.accentGold,
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppDimensions.fontBase),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  // ── Category/floor + status ──────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('${u.category}  •  ${u.floor}',
+                            style: const TextStyle(
+                                fontSize: AppDimensions.fontSM,
+                                color: AppColors.textMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: AppDimensions.spaceSM),
+                      _StatusBadge(status: u.status),
+                    ],
+                  ),
+                  const SizedBox(height: AppDimensions.spaceSM),
+                  const Divider(height: 1, color: AppColors.border),
+                  const SizedBox(height: AppDimensions.spaceXS),
+                  // ── Actions row — below name/description ─────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _ActionBtn(
+                        icon: Icons.language_outlined,
+                        color: AppColors.accentGold,
+                        enabled: u.status == 'vacant',
+                        onTap: () => onPublish(u),
+                      ),
+                      _ActionBtn(
+                        icon: Icons.receipt_long_outlined,
+                        color: AppColors.accentGold,
+                        enabled:
+                            u.status == 'occupied' || u.status == 'in_house',
+                        onTap: () => onGenerateInvoice(u),
+                      ),
+                      _ActionBtn(
+                        icon: Icons.info_outline_rounded,
+                        color: AppColors.info,
+                        onTap: () => onViewAgreement(u),
+                      ),
+                      _ActionBtn(
+                        icon: Icons.edit_outlined,
+                        color: Colors.white,
+                        onTap: () => onEdit(u),
+                      ),
+                      _ActionBtn(
+                        icon: Icons.delete_outline,
+                        color: AppColors.error,
+                        onTap: () => onDelete(u),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -1593,7 +1689,11 @@ class _StatusBadge extends StatelessWidget {
       'occupied' => (AppColors.occupiedBg, AppColors.occupiedText, 'Occupied'),
       'vacant' => (AppColors.vacantBg, AppColors.vacantText, 'Vacant'),
       'in_house' => (const Color(0xFF0A1A2E), AppColors.info, 'In-house'),
-      'owner_occupied' => (const Color(0xFF1E1500), AppColors.accentGold, 'Owner-occupied'),
+      'owner_occupied' => (
+          const Color(0xFF1E1500),
+          AppColors.accentGold,
+          'Owner-occupied'
+        ),
       _ => (AppColors.vacantBg, AppColors.vacantText, status),
     };
 

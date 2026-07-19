@@ -32,20 +32,36 @@ class AppButton extends StatelessWidget {
       height: height,
       child: switch (variant) {
         AppButtonVariant.primary => _PrimaryBtn(
-            label: label, onPressed: onPressed, icon: icon,
-            loading: loading, hPad: hPad, fontSize: fontSize,
+            label: label,
+            onPressed: onPressed,
+            icon: icon,
+            loading: loading,
+            hPad: hPad,
+            fontSize: fontSize,
           ),
         AppButtonVariant.secondary => _SecondaryBtn(
-            label: label, onPressed: onPressed, icon: icon,
-            loading: loading, hPad: hPad, fontSize: fontSize,
+            label: label,
+            onPressed: onPressed,
+            icon: icon,
+            loading: loading,
+            hPad: hPad,
+            fontSize: fontSize,
           ),
         AppButtonVariant.ghost => _GhostBtn(
-            label: label, onPressed: onPressed, icon: icon,
-            loading: loading, hPad: hPad, fontSize: fontSize,
+            label: label,
+            onPressed: onPressed,
+            icon: icon,
+            loading: loading,
+            hPad: hPad,
+            fontSize: fontSize,
           ),
         AppButtonVariant.danger => _DangerBtn(
-            label: label, onPressed: onPressed, icon: icon,
-            loading: loading, hPad: hPad, fontSize: fontSize,
+            label: label,
+            onPressed: onPressed,
+            icon: icon,
+            loading: loading,
+            hPad: hPad,
+            fontSize: fontSize,
           ),
       },
     );
@@ -73,7 +89,8 @@ class _BtnContent extends StatelessWidget {
   Widget build(BuildContext context) {
     if (loading) {
       return SizedBox(
-        width: 16, height: 16,
+        width: 16,
+        height: 16,
         child: CircularProgressIndicator(
           strokeWidth: 2,
           valueColor: AlwaysStoppedAnimation(textColor),
@@ -106,8 +123,12 @@ class _BtnContent extends StatelessWidget {
 // Primary: silver bg, black text — brand "action" style
 class _PrimaryBtn extends StatelessWidget {
   const _PrimaryBtn({
-    required this.label, required this.onPressed, required this.hPad,
-    required this.fontSize, required this.loading, this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.hPad,
+    required this.fontSize,
+    required this.loading,
+    this.icon,
   });
   final String label;
   final VoidCallback? onPressed;
@@ -128,8 +149,11 @@ class _PrimaryBtn extends StatelessWidget {
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: _BtnContent(
-        label: label, textColor: AppColors.bgOuter,
-        fontSize: fontSize, loading: loading, icon: icon,
+        label: label,
+        textColor: AppColors.bgOuter,
+        fontSize: fontSize,
+        loading: loading,
+        icon: icon,
       ),
     );
   }
@@ -138,8 +162,12 @@ class _PrimaryBtn extends StatelessWidget {
 // Secondary: transparent, silver border
 class _SecondaryBtn extends StatelessWidget {
   const _SecondaryBtn({
-    required this.label, required this.onPressed, required this.hPad,
-    required this.fontSize, required this.loading, this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.hPad,
+    required this.fontSize,
+    required this.loading,
+    this.icon,
   });
   final String label;
   final VoidCallback? onPressed;
@@ -159,8 +187,11 @@ class _SecondaryBtn extends StatelessWidget {
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: _BtnContent(
-        label: label, textColor: AppColors.textPrimary,
-        fontSize: fontSize, loading: loading, icon: icon,
+        label: label,
+        textColor: AppColors.textPrimary,
+        fontSize: fontSize,
+        loading: loading,
+        icon: icon,
       ),
     );
   }
@@ -169,8 +200,12 @@ class _SecondaryBtn extends StatelessWidget {
 // Ghost: no bg, no border, muted text
 class _GhostBtn extends StatelessWidget {
   const _GhostBtn({
-    required this.label, required this.onPressed, required this.hPad,
-    required this.fontSize, required this.loading, this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.hPad,
+    required this.fontSize,
+    required this.loading,
+    this.icon,
   });
   final String label;
   final VoidCallback? onPressed;
@@ -189,8 +224,11 @@ class _GhostBtn extends StatelessWidget {
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: _BtnContent(
-        label: label, textColor: AppColors.textMuted,
-        fontSize: fontSize, loading: loading, icon: icon,
+        label: label,
+        textColor: AppColors.textMuted,
+        fontSize: fontSize,
+        loading: loading,
+        icon: icon,
       ),
     );
   }
@@ -199,8 +237,12 @@ class _GhostBtn extends StatelessWidget {
 // Danger: error red bg, white text
 class _DangerBtn extends StatelessWidget {
   const _DangerBtn({
-    required this.label, required this.onPressed, required this.hPad,
-    required this.fontSize, required this.loading, this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.hPad,
+    required this.fontSize,
+    required this.loading,
+    this.icon,
   });
   final String label;
   final VoidCallback? onPressed;
@@ -221,8 +263,11 @@ class _DangerBtn extends StatelessWidget {
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: _BtnContent(
-        label: label, textColor: Colors.white,
-        fontSize: fontSize, loading: loading, icon: icon,
+        label: label,
+        textColor: Colors.white,
+        fontSize: fontSize,
+        loading: loading,
+        icon: icon,
       ),
     );
   }

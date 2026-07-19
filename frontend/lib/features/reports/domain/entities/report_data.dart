@@ -50,12 +50,15 @@ class OccupancyBreakdown {
   final int vacant;
   final double? occupancyRate;
 
-  factory OccupancyBreakdown.fromJson(Map<String, dynamic> j) => OccupancyBreakdown(
+  factory OccupancyBreakdown.fromJson(Map<String, dynamic> j) =>
+      OccupancyBreakdown(
         label: (j['category'] ?? j['floor'] ?? '') as String,
         total: (j['total'] as num).toInt(),
         occupied: (j['occupied'] as num).toInt(),
         vacant: (j['vacant'] as num).toInt(),
-        occupancyRate: j['occupancy_rate'] != null ? (j['occupancy_rate'] as num).toDouble() : null,
+        occupancyRate: j['occupancy_rate'] != null
+            ? (j['occupancy_rate'] as num).toDouble()
+            : null,
       );
 }
 
@@ -129,7 +132,8 @@ class RentCollectionReport {
   final double collectionRate;
   final List<UnitRentSummary> byUnit;
 
-  factory RentCollectionReport.fromJson(Map<String, dynamic> j) => RentCollectionReport(
+  factory RentCollectionReport.fromJson(Map<String, dynamic> j) =>
+      RentCollectionReport(
         period: j['period'] as String,
         collected: (j['collected'] as num).toDouble(),
         pending: (j['pending'] as num).toDouble(),
@@ -187,12 +191,13 @@ class MaintenanceCostReport {
   final List<MonthCost> byMonth;
   final List<UnitCost> byUnit;
 
-  factory MaintenanceCostReport.fromJson(Map<String, dynamic> j) => MaintenanceCostReport(
+  factory MaintenanceCostReport.fromJson(Map<String, dynamic> j) =>
+      MaintenanceCostReport(
         totalRequests: (j['total_requests'] as num).toInt(),
         totalActualCost: (j['total_actual_cost'] as num).toDouble(),
         totalEstimatedCost: (j['total_estimated_cost'] as num).toDouble(),
-        byStatus: Map<String, int>.from(
-            (j['by_status'] as Map? ?? {}).map((k, v) => MapEntry(k as String, (v as num).toInt()))),
+        byStatus: Map<String, int>.from((j['by_status'] as Map? ?? {})
+            .map((k, v) => MapEntry(k as String, (v as num).toInt()))),
         byCategory: (j['by_category'] as List? ?? [])
             .map((e) => CategoryCost.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -206,7 +211,8 @@ class MaintenanceCostReport {
 }
 
 class CategoryCost {
-  const CategoryCost({required this.category, required this.count, required this.actualCost});
+  const CategoryCost(
+      {required this.category, required this.count, required this.actualCost});
   final String category;
   final int count;
   final double actualCost;
@@ -218,7 +224,8 @@ class CategoryCost {
 }
 
 class MonthCost {
-  const MonthCost({required this.month, required this.label, required this.cost});
+  const MonthCost(
+      {required this.month, required this.label, required this.cost});
   final String month;
   final String label;
   final double cost;
@@ -230,7 +237,11 @@ class MonthCost {
 }
 
 class UnitCost {
-  const UnitCost({required this.unitId, required this.unitName, required this.count, required this.actualCost});
+  const UnitCost(
+      {required this.unitId,
+      required this.unitName,
+      required this.count,
+      required this.actualCost});
   final String unitId;
   final String unitName;
   final int count;

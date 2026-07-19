@@ -12,6 +12,7 @@ import '../../features/maintenance/presentation/screens/maintenance_screen.dart'
 import '../../features/reports/presentation/screens/reports_screen.dart';
 import '../../features/services/presentation/screens/admin_services_screen.dart';
 import '../../features/tasks/presentation/screens/tasks_screen.dart';
+import '../../features/properties/domain/entities/leasing_unit.dart';
 import '../../features/properties/presentation/screens/leasing_list_screen.dart';
 import '../../features/tenant/presentation/screens/tenant_home_screen.dart';
 import '../../features/tenant/presentation/screens/tenant_invoices_screen.dart';
@@ -83,7 +84,10 @@ class AppRouter {
             GoRoute(
               path: '/tenants',
               name: 'tenants',
-              pageBuilder: (_, s) => _page(s, const TenantListScreen()),
+              pageBuilder: (_, s) => _page(
+                s,
+                TenantListScreen(initialUnit: s.extra as LeasingUnit?),
+              ),
               routes: [
                 GoRoute(
                   path: ':id',
@@ -141,8 +145,10 @@ class AppRouter {
             GoRoute(
               path: '/documents',
               name: 'documents',
-              pageBuilder: (_, s) => _page(s,
-                  const _ComingSoonScreen(title: 'Documents', icon: Icons.description_outlined)),
+              pageBuilder: (_, s) => _page(
+                  s,
+                  const _ComingSoonScreen(
+                      title: 'Documents', icon: Icons.description_outlined)),
             ),
           ],
         ),
@@ -169,8 +175,7 @@ class AppRouter {
             GoRoute(
               path: '/tenant/maintenance',
               name: 'tenant-maintenance',
-              pageBuilder: (_, s) =>
-                  _page(s, const TenantMaintenanceScreen()),
+              pageBuilder: (_, s) => _page(s, const TenantMaintenanceScreen()),
             ),
             GoRoute(
               path: '/tenant/messages',
@@ -205,7 +210,8 @@ class _ComingSoonScreen extends StatelessWidget {
               color: AppColors.progressCardBg,
               borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
             ),
-            child: Icon(icon, size: AppDimensions.iconXL, color: AppColors.accentSilver),
+            child: Icon(icon,
+                size: AppDimensions.iconXL, color: AppColors.accentSilver),
           ),
           const SizedBox(height: AppDimensions.spaceLG),
           Text(

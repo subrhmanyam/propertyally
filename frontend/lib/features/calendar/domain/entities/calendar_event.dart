@@ -28,7 +28,9 @@ class CalendarEvent {
         title: j['title'] as String,
         eventType: _parseType(j['event_type'] as String? ?? ''),
         startAt: DateTime.parse(j['start_at'] as String),
-        endAt: j['end_at'] != null ? DateTime.tryParse(j['end_at'] as String) : null,
+        endAt: j['end_at'] != null
+            ? DateTime.tryParse(j['end_at'] as String)
+            : null,
         description: j['description'] as String?,
         allDay: (j['all_day'] as bool?) ?? false,
         leasingUnitId: j['leasing_unit_id'] as String?,

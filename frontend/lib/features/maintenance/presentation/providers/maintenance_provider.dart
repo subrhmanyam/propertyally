@@ -27,18 +27,23 @@ class MaintenanceProvider extends BaseProvider {
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list.where((r) =>
-          r.title.toLowerCase().contains(q) ||
-          (r.category?.toLowerCase().contains(q) ?? false) ||
-          (r.assignedTo?.toLowerCase().contains(q) ?? false) ||
-          (r.description?.toLowerCase().contains(q) ?? false)).toList();
+      list = list
+          .where((r) =>
+              r.title.toLowerCase().contains(q) ||
+              (r.category?.toLowerCase().contains(q) ?? false) ||
+              (r.assignedTo?.toLowerCase().contains(q) ?? false) ||
+              (r.description?.toLowerCase().contains(q) ?? false))
+          .toList();
     }
     return list;
   }
 
-  int get openCount => _requests.where((r) => r.status == MaintStatus.open).length;
-  int get inProgressCount => _requests.where((r) => r.status == MaintStatus.inProgress).length;
-  int get urgentCount => _requests.where((r) => r.priority == MaintPriority.urgent).length;
+  int get openCount =>
+      _requests.where((r) => r.status == MaintStatus.open).length;
+  int get inProgressCount =>
+      _requests.where((r) => r.status == MaintStatus.inProgress).length;
+  int get urgentCount =>
+      _requests.where((r) => r.priority == MaintPriority.urgent).length;
 
   Future<void> load() async {
     await runAsync(() async {

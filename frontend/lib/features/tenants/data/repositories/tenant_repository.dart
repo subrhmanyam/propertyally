@@ -29,8 +29,7 @@ class TenantRepository {
     final payload = Map<String, dynamic>.fromEntries(
       data.entries.where((e) => e.value != null && e.value != ''),
     );
-    final row =
-        await _db.from('tenants').insert(payload).select().single();
+    final row = await _db.from('tenants').insert(payload).select().single();
     return Tenant.fromJson(row);
   }
 
@@ -58,5 +57,20 @@ class TenantRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<Lease> createLease(Map<String, dynamic> data) async {
+    final row = await _db.from('leases').insert(data).select().single();
+    return Lease.fromJson(row);
+  }
+
+  Future<Lease> updateLease(String leaseId, Map<String, dynamic> data) async {
+    final row = await _db
+        .from('leases')
+        .update(data)
+        .eq('id', leaseId)
+        .select()
+        .single();
+    return Lease.fromJson(row);
   }
 }

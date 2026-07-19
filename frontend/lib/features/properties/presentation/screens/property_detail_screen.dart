@@ -599,7 +599,9 @@ class _InfoTab extends StatelessWidget {
               title: 'Property Information',
               rows: [
                 _InfoRow(label: AppStrings.address, value: property.address),
-                _InfoRow(label: AppStrings.propertyType, value: property.propertyType),
+                _InfoRow(
+                    label: AppStrings.propertyType,
+                    value: property.propertyType),
                 if (property.yearBuilt != null)
                   _InfoRow(
                     label: AppStrings.yearBuilt,
@@ -736,7 +738,8 @@ class _AmenitiesCard extends StatelessWidget {
             runSpacing: AppDimensions.spaceSM,
             children: amenities.map((a) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: AppColors.progressCardBg,
                   borderRadius: BorderRadius.circular(AppDimensions.radiusSM),

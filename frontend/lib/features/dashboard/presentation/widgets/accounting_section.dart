@@ -92,7 +92,8 @@ class _ChartCard extends StatelessWidget {
                 const Spacer(),
                 // Dropdown
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.border),
                     borderRadius: BorderRadius.circular(AppDimensions.radiusXS),
@@ -108,7 +109,8 @@ class _ChartCard extends StatelessWidget {
                       ),
                       SizedBox(width: 4),
                       Icon(Icons.arrow_drop_down,
-                          size: AppDimensions.iconSM, color: AppColors.textMuted),
+                          size: AppDimensions.iconSM,
+                          color: AppColors.textMuted),
                     ],
                   ),
                 ),
@@ -211,8 +213,10 @@ class _BarChart extends StatelessWidget {
               reservedSize: 28,
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         gridData: FlGridData(
@@ -269,44 +273,46 @@ class _SummaryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final fmt =
+        NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () => context.go('/accounting'),
         child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.spaceMD,
-        vertical: AppDimensions.spaceLG,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: AppDimensions.fontBase,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.spaceMD,
+            vertical: AppDimensions.spaceLG,
           ),
-          const SizedBox(height: AppDimensions.spaceXS),
-          Text(
-            fmt.format(amount),
-            style: TextStyle(
-              fontSize: AppDimensions.fontH2,
-              fontWeight: FontWeight.w700,
-              color: isIncome ? AppColors.textPrimary : AppColors.textPrimary,
-            ),
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
           ),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: AppDimensions.fontBase,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spaceXS),
+              Text(
+                fmt.format(amount),
+                style: TextStyle(
+                  fontSize: AppDimensions.fontH2,
+                  fontWeight: FontWeight.w700,
+                  color:
+                      isIncome ? AppColors.textPrimary : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

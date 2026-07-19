@@ -133,7 +133,8 @@ class LeasingProvider extends BaseProvider {
     _units = _units.where((u) => u.id != id).toList();
     // If we just removed the last unit in the selected company, go back to Level 1
     if (deletedUnit != null && _selectedCompany == deletedUnit.companyName) {
-      final stillHas = _units.any((u) => u.companyName == deletedUnit.companyName);
+      final stillHas =
+          _units.any((u) => u.companyName == deletedUnit.companyName);
       if (!stillHas) _selectedCompany = null;
     }
     notifyListeners();
