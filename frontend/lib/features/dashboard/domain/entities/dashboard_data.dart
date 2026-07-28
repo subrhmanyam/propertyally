@@ -14,22 +14,6 @@ class RecentProperty {
   final String? imageUrl;
 }
 
-class DashboardTask {
-  const DashboardTask({
-    required this.title,
-    required this.propertyName,
-    required this.propertyAddress,
-    this.isRecurring = false,
-    this.avatarInitial = 'M',
-  });
-
-  final String title;
-  final String propertyName;
-  final String propertyAddress;
-  final bool isRecurring;
-  final String avatarInitial;
-}
-
 class AccountingMonth {
   const AccountingMonth({
     required this.month,
@@ -50,7 +34,6 @@ class DashboardData {
     required this.onboardingStep,
     required this.onboardingTotal,
     required this.recentProperties,
-    required this.tasks,
     required this.accountingMonths,
     required this.totalIncome,
     required this.totalExpenses,
@@ -62,7 +45,6 @@ class DashboardData {
   final int onboardingStep;
   final int onboardingTotal;
   final List<RecentProperty> recentProperties;
-  final List<DashboardTask> tasks;
   final List<AccountingMonth> accountingMonths;
   final double totalIncome;
   final double totalExpenses;
@@ -120,32 +102,6 @@ class DashboardData {
         name: 'Precious House',
         address: '12333 NE 130th Ln, Kirkland, WA, 98034,...',
         status: PropertyStatus.occupied,
-      ),
-    ],
-    tasks: [
-      DashboardTask(
-        title: 'Change filters',
-        propertyName: 'Orange C...',
-        propertyAddress: '356 Boardm...',
-        isRecurring: true,
-      ),
-      DashboardTask(
-        title: 'Insurance',
-        propertyName: '123 Willow...',
-        propertyAddress: '123 Willow F...',
-        isRecurring: true,
-      ),
-      DashboardTask(
-        title: 'Insurance',
-        propertyName: '123 Willow...',
-        propertyAddress: '123 Willow F...',
-        isRecurring: true,
-      ),
-      DashboardTask(
-        title: 'Send bills to tenants',
-        propertyName: 'Villa de luxe',
-        propertyAddress: '1808 Main St...',
-        isRecurring: false,
       ),
     ],
     accountingMonths: [

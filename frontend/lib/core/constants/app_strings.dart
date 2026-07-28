@@ -17,8 +17,8 @@ class AppStrings {
   static const String dashboard = 'Dashboard';
   static const String today = 'Today';
   static const String viewAll = 'View all';
-  static const String addTask = '+ Add task';
-  static const String tasks = 'Tasks';
+  static const String addEvent = '+ Add Event';
+  static const String events = 'Events';
   static const String recentlyViewed = 'Recently viewed';
   static const String accounting = 'Accounting';
   static const String last30Days = 'Last 30 days';

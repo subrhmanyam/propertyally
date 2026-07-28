@@ -8,9 +8,17 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin, require_org_admin_for_unit
 from db import get_supabase
 
 router = APIRouter()
+
+
+def _require_admin(sb, user_id: str, unit_id: str | None) -> None:
+    if unit_id:
+        require_org_admin_for_unit(sb, user_id, unit_id)
+    else:
+        require_any_org_admin(sb, user_id)
 
 
 class EventIn(BaseModel):
@@ -44,7 +52,7 @@ async def list_events(
     leasing_unit_id: str | None = None,
 ) -> list[dict[str, Any]]:
     sb = get_supabase()
-    q = sb.table("events").select("*").order("start_at", ascending=True)
+    q = sb.table("events").select("*").order("start_at", desc=False)
     if start:
         q = q.gte("start_at", start)
     if end:
@@ -66,7 +74,7 @@ async def upcoming_events(days: int = Query(30, ge=1, le=365)) -> list[dict[str,
         .select("*")
         .gte("start_at", now.isoformat())
         .lte("start_at", end.isoformat())
-        .order("start_at", ascending=True)
+        .order("start_at", desc=False)
         .execute()
         .data or []
     )
@@ -82,19 +90,24 @@ async def get_event(event_id: str) -> dict[str, Any]:
 
 
 @router.post("/", status_code=201)
-async def create_event(payload: EventIn) -> dict[str, Any]:
+async def create_event(user_id: str, payload: EventIn) -> dict[str, Any]:
     sb = get_supabase()
+    _require_admin(sb, user_id, payload.leasing_unit_id)
     data = {k: v for k, v in payload.model_dump().items() if v is not None}
     res = sb.table("events").insert(data).execute()
     return res.data[0]
 
 
 @router.put("/{event_id}")
-async def update_event(event_id: str, payload: EventUpdate) -> dict[str, Any]:
+async def update_event(event_id: str, user_id: str, payload: EventUpdate) -> dict[str, Any]:
     sb = get_supabase()
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    current = sb.table("events").select("leasing_unit_id").eq("id", event_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Event not found")
+    _require_admin(sb, user_id, payload.leasing_unit_id or current.data[0].get("leasing_unit_id"))
     res = sb.table("events").update(updates).eq("id", event_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -102,15 +115,19 @@ async def update_event(event_id: str, payload: EventUpdate) -> dict[str, Any]:
 
 
 @router.delete("/{event_id}", status_code=204)
-async def delete_event(event_id: str) -> None:
+async def delete_event(event_id: str, user_id: str) -> None:
     sb = get_supabase()
+    current = sb.table("events").select("leasing_unit_id").eq("id", event_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Event not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
     sb.table("events").delete().eq("id", event_id).execute()
 
 
 # ── Auto-generate events from leases and rent schedules ──────────────────────
 
 @router.post("/sync-from-leases", status_code=200)
-async def sync_events_from_leases() -> dict[str, Any]:
+async def sync_events_from_leases(user_id: str) -> dict[str, Any]:
     """
     Generates calendar events for:
     - Lease expiry (30-day warning)
@@ -118,6 +135,7 @@ async def sync_events_from_leases() -> dict[str, Any]:
     Returns count of events created.
     """
     sb = get_supabase()
+    require_any_org_admin(sb, user_id)
     created = 0
     today = date.today()
 

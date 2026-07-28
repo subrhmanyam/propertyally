@@ -5,7 +5,7 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../domain/entities/dashboard_data.dart';
 import '../widgets/today_card.dart';
-import '../widgets/tasks_section.dart';
+import '../widgets/events_section.dart';
 import '../widgets/recently_viewed_section.dart';
 import '../widgets/accounting_section.dart';
 
@@ -28,7 +28,6 @@ class _DashboardBody extends StatelessWidget {
     onboardingStep: 0,
     onboardingTotal: 0,
     recentProperties: [],
-    tasks: [],
     accountingMonths: [],
     totalIncome: 0,
     totalExpenses: 0,
@@ -110,7 +109,7 @@ class _DesktopLayout extends StatelessWidget {
             children: [
               TodayCard(data: data),
               const SizedBox(height: AppDimensions.spaceMD),
-              TasksSection(tasks: data.tasks),
+              const EventsSection(),
             ],
           ),
         ),
@@ -151,7 +150,7 @@ class _MobileLayout extends StatelessWidget {
         const SizedBox(height: AppDimensions.spaceMD),
         const RecentlyViewedSection(properties: []),
         const SizedBox(height: AppDimensions.spaceMD),
-        TasksSection(tasks: data.tasks),
+        const EventsSection(),
         const SizedBox(height: AppDimensions.spaceMD),
         AccountingSection(
           months: data.accountingMonths,

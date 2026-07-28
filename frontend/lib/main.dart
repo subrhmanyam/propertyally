@@ -6,6 +6,7 @@ import 'core/config/supabase_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/accounting/presentation/providers/accounting_provider.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/calendar/presentation/providers/calendar_provider.dart';
 import 'features/listings/presentation/providers/listings_provider.dart';
 import 'features/maintenance/presentation/providers/maintenance_provider.dart';
 import 'features/services/presentation/providers/services_provider.dart';
@@ -43,6 +44,7 @@ class BogiPropertyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TasksProvider()),
         ChangeNotifierProvider(create: (_) => TenantProvider()),
         ChangeNotifierProvider(create: (_) => ServicesProvider()),
+        ChangeNotifierProvider(create: (_) => CalendarProvider()..load()),
         ChangeNotifierProvider(
             create: (_) => InvoiceSettingsProvider()..load()),
       ],
