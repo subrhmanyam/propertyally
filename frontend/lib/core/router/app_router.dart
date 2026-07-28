@@ -117,7 +117,10 @@ class AppRouter {
             GoRoute(
               path: '/services',
               name: 'services',
-              pageBuilder: (_, s) => _page(s, const AdminServicesScreen()),
+              pageBuilder: (_, s) => _page(
+                  s,
+                  AdminServicesScreen(
+                      initialRequestId: s.uri.queryParameters['request_id'])),
             ),
             GoRoute(
               path: '/reports',
@@ -170,7 +173,10 @@ class AppRouter {
             GoRoute(
               path: '/tenant/services',
               name: 'tenant-services',
-              pageBuilder: (_, s) => _page(s, const TenantServicesScreen()),
+              pageBuilder: (_, s) => _page(
+                  s,
+                  TenantServicesScreen(
+                      initialRequestId: s.uri.queryParameters['request_id'])),
             ),
             GoRoute(
               path: '/tenant/maintenance',

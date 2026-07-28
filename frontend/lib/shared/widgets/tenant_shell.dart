@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/utils/responsive.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import 'notification_bell.dart';
 
 enum _TenantNav { home, invoices, services, maintenance, messages }
 
@@ -231,6 +232,8 @@ class _TenantTopBar extends StatelessWidget {
                   fontWeight: FontWeight.w500),
             ),
             const Spacer(),
+            const NotificationBell(),
+            const SizedBox(width: AppDimensions.spaceMD),
             Text(
               auth.userEmail,
               style: const TextStyle(

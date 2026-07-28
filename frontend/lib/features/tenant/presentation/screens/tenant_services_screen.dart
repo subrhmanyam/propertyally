@@ -21,7 +21,11 @@ String _errorMessage(Object e) {
 }
 
 class TenantServicesScreen extends StatefulWidget {
-  const TenantServicesScreen({super.key});
+  const TenantServicesScreen({super.key, this.initialRequestId});
+
+  /// When set (e.g. from a notification's action_url), the matching
+  /// request card is scrolled into view and highlighted once loaded.
+  final String? initialRequestId;
 
   @override
   State<TenantServicesScreen> createState() => _TenantServicesScreenState();
@@ -29,11 +33,98 @@ class TenantServicesScreen extends StatefulWidget {
 
 class _TenantServicesScreenState extends State<TenantServicesScreen> {
   String? _selectedCategory;
+  final _myRequestsScrollController = ScrollController();
+  final Map<String, GlobalKey> _requestKeys = {};
+  bool _openedInitialRequest = false;
+
+  GlobalKey _keyFor(String requestId) =>
+      _requestKeys.putIfAbsent(requestId, () => GlobalKey());
+
+  @override
+  void dispose() {
+    _myRequestsScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant TenantServicesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialRequestId != oldWidget.initialRequestId) {
+      _openedInitialRequest = false;
+    }
+  }
+
+  void _maybeOpenInitialRequest(BuildContext context, TenantProvider p,
+      List<Map<String, dynamic>> requests) {
+    final id = widget.initialRequestId;
+    if (_openedInitialRequest || id == null) return;
+    final index = requests.indexWhere((r) => r['id'] == id);
+    if (index == -1) return;
+    _openedInitialRequest = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final keyContext = _requestKeys[id]?.currentContext;
+      if (keyContext != null) {
+        Scrollable.ensureVisible(
+          keyContext,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+          alignment: 0.1,
+        );
+      }
+      if (context.mounted) _openDetailDialog(context, p, requests[index]);
+    });
+  }
+
+  void _openDetailDialog(
+      BuildContext context, TenantProvider p, Map<String, dynamic> req) {
+    final id = req['id'] as String;
+    showDialog(
+      context: context,
+      builder: (_) => _TenantServiceDetailDialog(
+        req: req,
+        onDecide: (status) async {
+          try {
+            await p.decideServiceRequest(id, status);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_errorMessage(e))),
+              );
+            }
+          }
+        },
+        onUploadDocument: (bytes, filename) async {
+          try {
+            return await p.uploadServiceRequestDocument(id, bytes, filename);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_errorMessage(e))),
+              );
+            }
+            return null;
+          }
+        },
+        onDeleteDocument: (docId) async {
+          try {
+            await p.deleteServiceRequestDocument(id, docId);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_errorMessage(e))),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<TenantProvider>(
       builder: (context, p, _) {
+        _maybeOpenInitialRequest(context, p, p.serviceRequests);
         final catalog = p.serviceCatalog;
         final categories = catalog
             .map((s) => s['category'] as String)
@@ -73,15 +164,21 @@ class _TenantServicesScreenState extends State<TenantServicesScreen> {
                       color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: AppDimensions.spaceSM),
-                SizedBox(
-                  height: 150,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 320),
                   child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
+                    controller: _myRequestsScrollController,
+                    shrinkWrap: true,
                     itemCount: p.serviceRequests.length,
                     separatorBuilder: (_, __) =>
-                        const SizedBox(width: AppDimensions.spaceMD),
-                    itemBuilder: (context, i) => _MyRequestCard(
+                        const SizedBox(height: AppDimensions.spaceSM),
+                    itemBuilder: (context, i) => _MyRequestListTile(
+                      key: _keyFor(p.serviceRequests[i]['id'] as String),
                       req: p.serviceRequests[i],
+                      highlighted:
+                          p.serviceRequests[i]['id'] == widget.initialRequestId,
+                      onViewDetails: () =>
+                          _openDetailDialog(context, p, p.serviceRequests[i]),
                       onDecide: (status) async {
                         try {
                           await p.decideServiceRequest(
@@ -442,14 +539,17 @@ class _ServiceCard extends StatelessWidget {
   }
 }
 
-// ── My Requests card ────────────────────────────────────────────────
+// ── My Requests list tile ───────────────────────────────────────────
 
-class _MyRequestCard extends StatelessWidget {
-  const _MyRequestCard({
+class _MyRequestListTile extends StatelessWidget {
+  const _MyRequestListTile({
+    super.key,
     required this.req,
     required this.onDecide,
     required this.onUploadDocument,
     required this.onDeleteDocument,
+    required this.onViewDetails,
+    this.highlighted = false,
   });
 
   final Map<String, dynamic> req;
@@ -457,6 +557,8 @@ class _MyRequestCard extends StatelessWidget {
   final Future<Map<String, dynamic>?> Function(Uint8List bytes, String filename)
       onUploadDocument;
   final Future<void> Function(String documentId) onDeleteDocument;
+  final VoidCallback onViewDetails;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -470,97 +572,107 @@ class _MyRequestCard extends StatelessWidget {
     final docs =
         (req['documents'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
 
-    return Container(
-      width: 240,
-      padding: const EdgeInsets.all(AppDimensions.spaceMD),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        border: Border.all(
-            color: awaitingMe ? AppColors.pendingText : AppColors.border),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(serviceName,
-              style: const TextStyle(
-                  fontSize: AppDimensions.fontSM,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
-          _StatusPill(status),
-          const SizedBox(height: 6),
-          if (expensesBorneBy != null)
-            Text('Paid by: $expensesBorneBy',
-                style:
-                    const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-          if (estimatedCost != null)
-            Text(
-                'Est: ${NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN').format(estimatedCost)}',
-                style:
-                    const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-          const Spacer(),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => showDialog(
-                  context: context,
-                  builder: (_) => _TenantDocumentsDialog(
-                    docs: docs,
-                    onUpload: onUploadDocument,
-                    onDelete: onDeleteDocument,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.attach_file,
-                        size: 14,
-                        color: docs.isEmpty
-                            ? AppColors.textMuted
-                            : AppColors.accentGold),
-                    if (docs.isNotEmpty)
-                      Text(' ${docs.length}',
-                          style: const TextStyle(
-                              fontSize: 11, color: AppColors.textMuted)),
-                  ],
-                ),
-              ),
-            ],
+    return GestureDetector(
+      onTap: onViewDetails,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.spaceMD, vertical: AppDimensions.spaceSM),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          border: Border.all(
+            color: highlighted
+                ? AppColors.accentGold
+                : (awaitingMe ? AppColors.pendingText : AppColors.border),
+            width: highlighted ? 2 : 1,
           ),
-          if (awaitingMe) ...[
-            const SizedBox(height: 6),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _MiniButton(
-                    label: 'Approve',
-                    color: AppColors.occupiedText,
-                    onTap: () => onDecide('Approved'),
-                  ),
+                  child: Text(serviceName,
+                      style: const TextStyle(
+                          fontSize: AppDimensions.fontSM,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                 ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: _MiniButton(
-                    label: 'Review',
-                    color: AppColors.pendingText,
-                    onTap: () => onDecide('Review'),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: _MiniButton(
-                    label: 'Decline',
-                    color: AppColors.error,
-                    onTap: () => onDecide('Declined'),
-                  ),
+                const SizedBox(width: AppDimensions.spaceSM),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _StatusPill(status),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (awaitingMe) ...[
+                          _MiniButton(
+                            label: 'Approve',
+                            color: AppColors.occupiedText,
+                            onTap: () => onDecide('Approved'),
+                          ),
+                          const SizedBox(width: 4),
+                          _MiniButton(
+                            label: 'Review',
+                            color: AppColors.pendingText,
+                            onTap: () => onDecide('Review'),
+                          ),
+                          const SizedBox(width: 4),
+                          _MiniButton(
+                            label: 'Decline',
+                            color: AppColors.error,
+                            onTap: () => onDecide('Declined'),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        _MiniButton(
+                          label: docs.isEmpty
+                              ? 'Documents'
+                              : 'Documents (${docs.length})',
+                          color: AppColors.textHeading,
+                          onTap: () => showDialog(
+                            context: context,
+                            builder: (_) => _TenantDocumentsDialog(
+                              docs: docs,
+                              onUpload: onUploadDocument,
+                              onDelete: onDeleteDocument,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                if (expensesBorneBy != null)
+                  Text('Paid by: $expensesBorneBy',
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textMuted)),
+                if (expensesBorneBy != null && estimatedCost != null)
+                  const Text('   •   ',
+                      style:
+                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                if (estimatedCost != null)
+                  Text(
+                      'Est: ${NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN').format(estimatedCost)}',
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textMuted)),
+              ],
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -579,7 +691,7 @@ class _MiniButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border.all(color: color),
@@ -588,6 +700,247 @@ class _MiniButton extends StatelessWidget {
         child: Text(label,
             style: TextStyle(
                 fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+      ),
+    );
+  }
+}
+
+// ── Service detail dialog (opened from the bell notification, or the
+// "View" action on a request card) ──────────────────────────────────
+
+class _TenantServiceDetailDialog extends StatelessWidget {
+  const _TenantServiceDetailDialog({
+    required this.req,
+    required this.onDecide,
+    required this.onUploadDocument,
+    required this.onDeleteDocument,
+  });
+
+  final Map<String, dynamic> req;
+  final Future<void> Function(String status) onDecide;
+  final Future<Map<String, dynamic>?> Function(Uint8List bytes, String filename)
+      onUploadDocument;
+  final Future<void> Function(String documentId) onDeleteDocument;
+
+  static final _costFmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+
+  @override
+  Widget build(BuildContext context) {
+    final status = req['status'] as String? ?? 'Initiated';
+    final serviceName = (req['service_catalog'] as Map?)?['name'] as String? ??
+        req['service_name'] as String? ??
+        'Service';
+    final category = (req['service_catalog'] as Map?)?['category'] as String?;
+    final unit = (req['leasing_units'] as Map?)?['name'] as String?;
+    final priority = req['priority'] as String? ?? 'normal';
+    final expensesBorneBy = req['expenses_borne_by'] as String?;
+    final estimatedCost = (req['estimated_cost'] as num?)?.toDouble();
+    final initiatedDateRaw = req['initiated_date'] as String?;
+    final initiatedDate = initiatedDateRaw != null
+        ? DateFormat('dd MMM yyyy').format(DateTime.parse(initiatedDateRaw))
+        : null;
+    final description = req['description'] as String?;
+    final awaitingMe = req['approval_required_from'] == 'Tenant';
+    final docs =
+        (req['documents'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+
+    return Dialog(
+      backgroundColor: AppColors.cardBg,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMD)),
+      child: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppDimensions.spaceLG,
+                  AppDimensions.spaceLG,
+                  AppDimensions.spaceLG,
+                  AppDimensions.spaceSM),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(serviceName,
+                        style: const TextStyle(
+                            fontSize: AppDimensions.fontH3,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close,
+                        size: 18, color: AppColors.textMuted),
+                    onPressed: () => Navigator.pop(context),
+                    splashRadius: 16,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: AppColors.border, height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppDimensions.spaceLG),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _StatusPill(status),
+                    const SizedBox(height: AppDimensions.spaceMD),
+                    Wrap(
+                      spacing: AppDimensions.spaceLG,
+                      runSpacing: AppDimensions.spaceSM,
+                      children: [
+                        if (category != null) _DetailRow('Category', category),
+                        if (unit != null) _DetailRow('Property / Unit', unit),
+                        _DetailRow('Priority', priority.toUpperCase()),
+                        if (expensesBorneBy != null)
+                          _DetailRow('Paid by', expensesBorneBy),
+                        if (estimatedCost != null)
+                          _DetailRow(
+                              'Estimated Cost', _costFmt.format(estimatedCost)),
+                        if (initiatedDate != null)
+                          _DetailRow('Initiated', initiatedDate),
+                      ],
+                    ),
+                    if (description != null && description.isNotEmpty) ...[
+                      const SizedBox(height: AppDimensions.spaceMD),
+                      const Text('Description',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textMuted)),
+                      const SizedBox(height: 4),
+                      Text(description,
+                          style: const TextStyle(
+                              fontSize: AppDimensions.fontSM,
+                              color: AppColors.textPrimary)),
+                    ],
+                    const SizedBox(height: AppDimensions.spaceMD),
+                    if (awaitingMe)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppDimensions.spaceSM, vertical: 6),
+                        margin: const EdgeInsets.only(
+                            bottom: AppDimensions.spaceMD),
+                        decoration: BoxDecoration(
+                          color: AppColors.pendingBg,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.hourglass_bottom,
+                                size: 14, color: AppColors.pendingText),
+                            SizedBox(width: 6),
+                            Text('Awaiting your approval',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.pendingText,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    Row(
+                      children: [
+                        const Icon(Icons.attach_file,
+                            size: 14, color: AppColors.textMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                            docs.isEmpty
+                                ? 'No documents'
+                                : '${docs.length} document${docs.length == 1 ? '' : 's'}',
+                            style: const TextStyle(
+                                fontSize: 12, color: AppColors.textMuted)),
+                        const SizedBox(width: AppDimensions.spaceSM),
+                        TextButton(
+                          onPressed: () => showDialog(
+                            context: context,
+                            builder: (_) => _TenantDocumentsDialog(
+                              docs: docs,
+                              onUpload: onUploadDocument,
+                              onDelete: onDeleteDocument,
+                            ),
+                          ),
+                          child: const Text('Manage'),
+                        ),
+                      ],
+                    ),
+                    if (awaitingMe) ...[
+                      const SizedBox(height: AppDimensions.spaceSM),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _MiniButton(
+                              label: 'Approve',
+                              color: AppColors.occupiedText,
+                              onTap: () {
+                                onDecide('Approved');
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: _MiniButton(
+                              label: 'Review',
+                              color: AppColors.pendingText,
+                              onTap: () {
+                                onDecide('Review');
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: _MiniButton(
+                              label: 'Decline',
+                              color: AppColors.error,
+                              onTap: () {
+                                onDecide('Declined');
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 190,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted)),
+          const SizedBox(height: 2),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: AppDimensions.fontSM,
+                  color: AppColors.textPrimary)),
+        ],
       ),
     );
   }

@@ -22,18 +22,98 @@ String _errorMessage(Object e) {
 }
 
 class AdminServicesScreen extends StatefulWidget {
-  const AdminServicesScreen({super.key});
+  const AdminServicesScreen({super.key, this.initialRequestId});
+
+  /// When set (e.g. from a notification's action_url), the matching
+  /// request's detail dialog is opened automatically once loaded.
+  final String? initialRequestId;
 
   @override
   State<AdminServicesScreen> createState() => _AdminServicesScreenState();
 }
 
 class _AdminServicesScreenState extends State<AdminServicesScreen> {
+  bool _openedInitialRequest = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => context.read<ServicesProvider>().load());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final p = context.read<ServicesProvider>();
+      await p.load();
+      _maybeOpenInitialRequest(p);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminServicesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialRequestId != oldWidget.initialRequestId) {
+      _openedInitialRequest = false;
+      _maybeOpenInitialRequest(context.read<ServicesProvider>());
+    }
+  }
+
+  void _maybeOpenInitialRequest(ServicesProvider p) {
+    final id = widget.initialRequestId;
+    if (_openedInitialRequest || id == null || !mounted) return;
+    Map<String, dynamic>? req;
+    for (final r in p.requests) {
+      if (r['id'] == id) {
+        req = r;
+        break;
+      }
+    }
+    if (req == null) return;
+    _openedInitialRequest = true;
+    _openDetailDialog(context, p, req);
+  }
+
+  void _openDetailDialog(
+      BuildContext context, ServicesProvider p, Map<String, dynamic> req) {
+    final id = req['id'] as String;
+    showDialog(
+      context: context,
+      builder: (_) => _ServiceDetailDialog(
+        req: req,
+        statuses: _RequestsTable._statuses,
+        onUpdateDetails: (updates) async {
+          try {
+            await p.updateDetails(id, updates);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_errorMessage(e))),
+              );
+            }
+            rethrow;
+          }
+        },
+        onUploadDocument: (bytes, filename) async {
+          try {
+            return await p.uploadDocument(id, bytes, filename);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_errorMessage(e))),
+              );
+            }
+            return null;
+          }
+        },
+        onDeleteDocument: (docId) async {
+          try {
+            await p.deleteDocument(id, docId);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_errorMessage(e))),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
 
   @override

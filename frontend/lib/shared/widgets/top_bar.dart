@@ -8,6 +8,7 @@ import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_strings.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/search/data/search_repository.dart';
+import 'notification_bell.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
   const TopBar({super.key, this.onMenuTap});
@@ -32,10 +33,10 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
         children: [
           _TopBarIconBtn(icon: Icons.menu_rounded, onTap: onMenuTap ?? () {}),
           const SizedBox(width: AppDimensions.spaceSM),
-          _TopBarIconBtn(icon: Icons.notifications_outlined, onTap: () {}),
-          const SizedBox(width: AppDimensions.spaceMD),
           const Expanded(child: _SearchField()),
           const SizedBox(width: AppDimensions.spaceMD),
+          const NotificationBell(),
+          const SizedBox(width: AppDimensions.spaceXS),
           _TopBarIconBtn(icon: Icons.chat_bubble_outline_rounded, onTap: () {}),
           const SizedBox(width: AppDimensions.spaceXS),
           _TopBarIconBtn(icon: Icons.help_outline_rounded, onTap: () {}),

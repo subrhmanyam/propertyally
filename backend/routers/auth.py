@@ -76,10 +76,35 @@ async def register(payload: RegisterIn) -> dict[str, Any]:
 
 @router.get("/profile")
 async def get_profile(user_id: str) -> dict[str, Any]:
-    """Return the profiles row for this user (used to determine role on login)."""
+    """Return this user's role (used to decide which app shell to route into).
+
+    `profiles` is not a reliable source of truth for tenants — accounts
+    created directly against a tenants row (rather than through /register)
+    have no profiles row at all, which used to 404 here and made the
+    frontend's catch-all fall back to 'admin', silently dropping tenants
+    into the admin shell. The tenants table (via auth_user_id) is checked
+    first since it's the actual ground truth for "is this user a tenant."
+    """
+    sb = get_supabase()
+
+    tenant_res = (
+        sb.table("tenants")
+        .select("id, first_name, last_name, email")
+        .eq("auth_user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if tenant_res.data:
+        row = tenant_res.data[0]
+        return {
+            "id": user_id,
+            "role": "tenant",
+            "full_name": f"{row.get('first_name', '')} {row.get('last_name', '')}".strip(),
+            "email": row.get("email"),
+        }
+
     res = (
-        get_supabase()
-        .table("profiles")
+        sb.table("profiles")
         .select("id, role, full_name, email")
         .eq("id", user_id)
         .limit(1)
