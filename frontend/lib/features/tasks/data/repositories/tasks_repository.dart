@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/task.dart';
 
@@ -6,6 +7,8 @@ class TasksRepository {
   TasksRepository() : _dio = ApiClient.instance;
 
   final Dio _dio;
+
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
   Future<List<Task>> listTasks({String? propertyId, String? status}) async {
     final params = <String, dynamic>{
@@ -25,12 +28,20 @@ class TasksRepository {
   }
 
   Future<Task> createTask(Map<String, dynamic> data) async {
-    final res = await _dio.post('/api/v1/tasks/', data: data);
+    final res = await _dio.post(
+      '/api/v1/tasks/',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+      data: data,
+    );
     return Task.fromJson(res.data as Map<String, dynamic>);
   }
 
   Future<Task> updateTask(String id, Map<String, dynamic> updates) async {
-    final res = await _dio.patch('/api/v1/tasks/$id', data: updates);
+    final res = await _dio.patch(
+      '/api/v1/tasks/$id',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+      data: updates,
+    );
     return Task.fromJson(res.data as Map<String, dynamic>);
   }
 }

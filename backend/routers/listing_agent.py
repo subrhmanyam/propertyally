@@ -16,6 +16,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from agents.listing_agent import run_listing_agent
+from auth_utils import require_org_admin_for_unit
 from db import get_supabase
 from platforms.posters import get_poster
 from platforms.registry import PLATFORM_REGISTRY, get_platforms_for_category
@@ -69,8 +70,11 @@ async def platforms_for_unit(unit_id: str):
 
 
 @router.post("/trigger/{unit_id}", summary="Trigger listing agent for selected platforms")
-async def trigger_agent(unit_id: str, body: TriggerRequest, background_tasks: BackgroundTasks):
+async def trigger_agent(
+    unit_id: str, user_id: str, body: TriggerRequest, background_tasks: BackgroundTasks
+):
     sb = get_supabase()
+    require_org_admin_for_unit(sb, user_id, unit_id)
     unit_resp = sb.table("leasing_units").select("id, name, status").eq("id", unit_id).limit(1).execute()
     if not (unit_resp.data):
         raise HTTPException(status_code=404, detail="Unit not found")
@@ -104,13 +108,19 @@ async def get_platform_posts(listing_id: str):
 
 
 @router.post("/retry/{post_id}", summary="Retry a failed platform post")
-async def retry_post(post_id: str, background_tasks: BackgroundTasks):
+async def retry_post(post_id: str, user_id: str, background_tasks: BackgroundTasks):
     sb = get_supabase()
     post_resp = sb.table("listing_platform_posts").select("*").eq("id", post_id).single().execute()
     if not post_resp.data:
         raise HTTPException(status_code=404, detail="Platform post not found")
 
     post = post_resp.data
+    listing_resp = (
+        sb.table("listings").select("leasing_unit_id").eq("id", post["listing_id"]).limit(1).execute()
+    )
+    unit_id = listing_resp.data[0].get("leasing_unit_id") if listing_resp.data else None
+    require_org_admin_for_unit(sb, user_id, unit_id)
+
     if post["status"] not in ("failed", "manual_required", "pending"):
         raise HTTPException(status_code=400, detail=f"Cannot retry post with status '{post['status']}'")
 

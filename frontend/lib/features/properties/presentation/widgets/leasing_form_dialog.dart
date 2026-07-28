@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide MultipartFile;
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
@@ -117,6 +118,7 @@ class _LeasingFormSheet extends StatefulWidget {
 }
 
 class _LeasingFormSheetState extends State<_LeasingFormSheet> {
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
   static const _kCustom = '__custom__';
 
   late final LeasingUnitDraft _draft;
@@ -196,6 +198,7 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
         });
         final res = await ApiClient.properties.post(
           '/api/v1/leasing/$unitId/photos',
+          queryParameters: {if (_userId != null) 'user_id': _userId},
           data: formData,
         );
         final photos = (res.data['photos'] as List?)?.map((e) => e.toString()).toList();
@@ -221,6 +224,7 @@ class _LeasingFormSheetState extends State<_LeasingFormSheet> {
     try {
       await ApiClient.properties.delete(
         '/api/v1/leasing/$unitId/photos',
+        queryParameters: {if (_userId != null) 'user_id': _userId},
         data: {'photo_url': photoUrl},
       );
     } on DioException catch (_) {

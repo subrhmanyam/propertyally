@@ -34,6 +34,10 @@ Tracks income/expense transactions (rent, maintenance, etc.) tied to leases/tena
 - `AccountingRepository`/`AccountingProvider` never call `/transactions` POST/PUT/DELETE for manual entry — only list, generate, and mark-paid are wired up from the UI.
 - Tenant portal (`backend/routers/tenant.py:82` `GET /my-invoices`) and Stripe checkout (`backend/routers/stripe_payments.py`) both read/write the same `transactions` table, so rent transactions generated here are what tenants see and pay against.
 
+## Recent changes (org-admin authorization hardening)
+- All mutating `accounting.py` endpoints — `POST/PUT/DELETE /transactions`, `PATCH /transactions/{id}/status`, `POST /invoices/generate` — previously had zero auth and now require a `user_id` query param. Per-transaction endpoints resolve the org via the transaction's (or payload's) `leasing_unit_id` and call `require_org_admin_for_unit`; if there's no unit (a general expense not tied to a property), they fall back to `require_any_org_admin`. `invoices/generate` is a cross-org bulk operation so it just requires `require_any_org_admin`. See `backend/auth_utils.py`.
+- `accounting_repository.dart` now has a `_userId` getter threaded into `generateInvoices()` and `markPaid()` — the two mutating calls the UI actually makes (create/update/delete aren't called by the frontend at all, per the bullet below, but were hardened too for defense-in-depth).
+
 ## Known Issues
 - `accounting_screen.dart:163` — "Add Transaction" button has `onPressed: () {}` — no-op, dialog not implemented. Manual transaction entry is not possible from the UI despite the backend supporting `POST /transactions`.
 - GST amounts computed in `invoices/generate` are not added to `transactions.amount`, so any consumer relying on `amount` alone (KPI cards, `/summary`) undercounts rent revenue by the 18% GST portion whenever GST applies.

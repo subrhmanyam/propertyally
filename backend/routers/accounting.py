@@ -9,9 +9,17 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin, require_org_admin_for_unit
 from db import get_supabase
 
 router = APIRouter()
+
+
+def _require_admin(sb, user_id: str, unit_id: str | None) -> None:
+    if unit_id:
+        require_org_admin_for_unit(sb, user_id, unit_id)
+    else:
+        require_any_org_admin(sb, user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -76,15 +84,20 @@ async def get_transaction(transaction_id: str) -> dict[str, Any]:
 
 
 @router.post("/transactions", status_code=201)
-async def create_transaction(payload: TransactionIn) -> dict[str, Any]:
+async def create_transaction(user_id: str, payload: TransactionIn) -> dict[str, Any]:
     sb = get_supabase()
+    _require_admin(sb, user_id, payload.leasing_unit_id)
     res = sb.table("transactions").insert(payload.model_dump()).execute()
     return res.data[0]
 
 
 @router.put("/transactions/{transaction_id}")
-async def update_transaction(transaction_id: str, payload: TransactionIn) -> dict[str, Any]:
+async def update_transaction(transaction_id: str, user_id: str, payload: TransactionIn) -> dict[str, Any]:
     sb = get_supabase()
+    current = sb.table("transactions").select("leasing_unit_id").eq("id", transaction_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    _require_admin(sb, user_id, payload.leasing_unit_id or current.data[0].get("leasing_unit_id"))
     res = sb.table("transactions").update(payload.model_dump()).eq("id", transaction_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -92,11 +105,15 @@ async def update_transaction(transaction_id: str, payload: TransactionIn) -> dic
 
 
 @router.patch("/transactions/{transaction_id}/status")
-async def patch_transaction_status(transaction_id: str, body: StatusPatch) -> dict[str, Any]:
+async def patch_transaction_status(transaction_id: str, user_id: str, body: StatusPatch) -> dict[str, Any]:
     allowed = {"paid", "pending", "overdue"}
     if body.status not in allowed:
         raise HTTPException(status_code=400, detail=f"status must be one of {allowed}")
     sb = get_supabase()
+    current = sb.table("transactions").select("leasing_unit_id").eq("id", transaction_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
     res = sb.table("transactions").update({"status": body.status}).eq("id", transaction_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -104,8 +121,12 @@ async def patch_transaction_status(transaction_id: str, body: StatusPatch) -> di
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
-async def delete_transaction(transaction_id: str) -> None:
+async def delete_transaction(transaction_id: str, user_id: str) -> None:
     sb = get_supabase()
+    current = sb.table("transactions").select("leasing_unit_id").eq("id", transaction_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
     sb.table("transactions").delete().eq("id", transaction_id).execute()
 
 
@@ -121,13 +142,14 @@ def _fiscal_year(d: date) -> str:
 
 
 @router.post("/invoices/generate", status_code=201)
-async def generate_monthly_invoices() -> dict[str, Any]:
+async def generate_monthly_invoices(user_id: str) -> dict[str, Any]:
     """Generate pending rent invoices for all active leases for the current month.
 
     Idempotent — skips any lease that already has a Rent transaction for this
     calendar month (detected via the period field in notes JSON).
     """
     sb = get_supabase()
+    require_any_org_admin(sb, user_id)
     today = date.today()
     period_key = today.strftime("%Y-%m")
     fiscal_yr = _fiscal_year(today)

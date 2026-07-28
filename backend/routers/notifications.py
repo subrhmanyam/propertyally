@@ -34,6 +34,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin
 from db import get_supabase
 from services.notification_service import (
     get_notification_service,
@@ -138,7 +139,8 @@ async def unread_count(user_id: str) -> dict[str, int]:
 
 
 @router.post("/", status_code=201)
-async def create_notification(payload: NotificationIn) -> dict[str, Any]:
+async def create_notification(user_id: str, payload: NotificationIn) -> dict[str, Any]:
+    require_any_org_admin(get_supabase(), user_id)
     svc = get_notification_service()
     result = svc.send_in_app(
         user_id=payload.user_id,
@@ -152,8 +154,13 @@ async def create_notification(payload: NotificationIn) -> dict[str, Any]:
 
 
 @router.put("/{notification_id}/read")
-async def mark_read(notification_id: str) -> dict[str, Any]:
+async def mark_read(notification_id: str, user_id: str) -> dict[str, Any]:
     sb = get_supabase()
+    current = sb.table("notifications").select("user_id").eq("id", notification_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if current.data[0].get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="This notification does not belong to you.")
     res = (
         sb.table("notifications")
         .update({"is_read": True})
@@ -179,8 +186,13 @@ async def mark_all_read(user_id: str) -> dict[str, int]:
 
 
 @router.delete("/{notification_id}", status_code=204)
-async def delete_notification(notification_id: str) -> None:
+async def delete_notification(notification_id: str, user_id: str) -> None:
     sb = get_supabase()
+    current = sb.table("notifications").select("user_id").eq("id", notification_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if current.data[0].get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="This notification does not belong to you.")
     sb.table("notifications").delete().eq("id", notification_id).execute()
 
 
@@ -189,7 +201,8 @@ async def delete_notification(notification_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 @router.post("/send/email")
-async def send_email(req: SendEmailRequest) -> dict[str, Any]:
+async def send_email(user_id: str, req: SendEmailRequest) -> dict[str, Any]:
+    require_any_org_admin(get_supabase(), user_id)
     svc = get_notification_service()
     result = await svc.send_email(
         to_email=req.to_email,
@@ -202,21 +215,24 @@ async def send_email(req: SendEmailRequest) -> dict[str, Any]:
 
 
 @router.post("/send/sms")
-async def send_sms(req: SendSmsRequest) -> dict[str, Any]:
+async def send_sms(user_id: str, req: SendSmsRequest) -> dict[str, Any]:
+    require_any_org_admin(get_supabase(), user_id)
     svc = get_notification_service()
     result = await svc.send_sms(to_phone=req.to_phone, body=req.body)
     return result.as_dict()
 
 
 @router.post("/send/whatsapp")
-async def send_whatsapp(req: SendWhatsAppRequest) -> dict[str, Any]:
+async def send_whatsapp(user_id: str, req: SendWhatsAppRequest) -> dict[str, Any]:
+    require_any_org_admin(get_supabase(), user_id)
     svc = get_notification_service()
     result = await svc.send_whatsapp(to_phone=req.to_phone, body=req.body)
     return result.as_dict()
 
 
 @router.post("/send/all")
-async def send_all(req: SendAllRequest) -> dict[str, Any]:
+async def send_all(user_id: str, req: SendAllRequest) -> dict[str, Any]:
+    require_any_org_admin(get_supabase(), user_id)
     svc = get_notification_service()
     channels = [Channel(c) for c in req.channels if c in Channel._value2member_map_]
     result = await svc.dispatch(
@@ -255,7 +271,7 @@ async def get_providers() -> dict[str, str]:
 
 
 @router.post("/dispatch")
-async def dispatch_event(req: DispatchRequest) -> dict[str, Any]:
+async def dispatch_event(user_id: str, req: DispatchRequest) -> dict[str, Any]:
     """
     Render a named event template and send across specified channels.
 
@@ -276,6 +292,7 @@ async def dispatch_event(req: DispatchRequest) -> dict[str, Any]:
         }
     }
     """
+    require_any_org_admin(get_supabase(), user_id)
     try:
         rendered = render_template(req.event_type, **req.variables)
     except KeyError:

@@ -8,6 +8,8 @@ class ListingsRepository {
   final Dio _dio = ApiClient.instance;
   SupabaseClient get _db => Supabase.instance.client;
 
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
+
   Future<List<Listing>> getAll() async {
     try {
       final rows = await _db
@@ -49,12 +51,16 @@ class ListingsRepository {
   Future<void> triggerAgent(String unitId, List<String> platformKeys) async {
     await _dio.post(
       '/api/v1/listing-agent/trigger/$unitId',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
       data: {'platform_keys': platformKeys},
     );
   }
 
   Future<void> retryPost(String postId) async {
-    await _dio.post('/api/v1/listing-agent/retry/$postId');
+    await _dio.post(
+      '/api/v1/listing-agent/retry/$postId',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+    );
   }
 
   String _platformName(String key) => switch (key) {

@@ -1,11 +1,18 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide MultipartFile;
 
 import '../../../../core/network/api_client.dart';
 
 class ServicesRepository {
   final Dio _dio = ApiClient.instance;
+
+  /// The signed-in admin's Supabase auth id — the backend uses this to
+  /// verify org-admin access before allowing status changes or creating a
+  /// request on behalf of a unit (see backend/routers/service_requests.py
+  /// `_require_org_admin`).
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
   Future<List<Map<String, dynamic>>> listRequests({
     String? status,
@@ -42,24 +49,32 @@ class ServicesRepository {
     double? estimatedCost,
     DateTime? initiatedDate,
   }) async {
-    final res = await _dio.post('/api/v1/service-requests/admin', data: {
-      'leasing_unit_id': leasingUnitId,
-      if (serviceId != null) 'service_id': serviceId,
-      if (serviceName != null) 'service_name': serviceName,
-      if (description != null && description.isNotEmpty)
-        'description': description,
-      'priority': priority,
-      if (expensesBorneBy != null) 'expenses_borne_by': expensesBorneBy,
-      if (estimatedCost != null) 'estimated_cost': estimatedCost,
-      if (initiatedDate != null)
-        'initiated_date': initiatedDate.toIso8601String(),
-    });
+    final res = await _dio.post(
+      '/api/v1/service-requests/admin',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+      data: {
+        'leasing_unit_id': leasingUnitId,
+        if (serviceId != null) 'service_id': serviceId,
+        if (serviceName != null) 'service_name': serviceName,
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        'priority': priority,
+        if (expensesBorneBy != null) 'expenses_borne_by': expensesBorneBy,
+        if (estimatedCost != null) 'estimated_cost': estimatedCost,
+        if (initiatedDate != null)
+          'initiated_date': initiatedDate.toIso8601String(),
+      },
+    );
     return res.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> updateRequest(
       String id, Map<String, dynamic> updates) async {
-    final res = await _dio.patch('/api/v1/service-requests/$id', data: updates);
+    final res = await _dio.patch(
+      '/api/v1/service-requests/$id',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+      data: updates,
+    );
     return res.data as Map<String, dynamic>;
   }
 

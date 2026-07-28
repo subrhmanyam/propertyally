@@ -7,9 +7,17 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin, require_org_admin_for_unit
 from db import get_supabase
 
 router = APIRouter()
+
+
+def _require_admin(sb, user_id: str, unit_id: str | None) -> None:
+    if unit_id:
+        require_org_admin_for_unit(sb, user_id, unit_id)
+    else:
+        require_any_org_admin(sb, user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -70,15 +78,20 @@ async def get_tenant(tenant_id: str) -> dict[str, Any]:
 
 
 @router.post("/", status_code=201)
-async def create_tenant(payload: TenantIn) -> dict[str, Any]:
+async def create_tenant(user_id: str, payload: TenantIn) -> dict[str, Any]:
     sb = get_supabase()
+    _require_admin(sb, user_id, payload.leasing_unit_id)
     res = sb.table("tenants").insert(payload.model_dump(exclude_none=True)).execute()
     return res.data[0]
 
 
 @router.put("/{tenant_id}")
-async def update_tenant(tenant_id: str, payload: TenantIn) -> dict[str, Any]:
+async def update_tenant(tenant_id: str, user_id: str, payload: TenantIn) -> dict[str, Any]:
     sb = get_supabase()
+    current = sb.table("tenants").select("leasing_unit_id").eq("id", tenant_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    _require_admin(sb, user_id, payload.leasing_unit_id or current.data[0].get("leasing_unit_id"))
     res = sb.table("tenants").update(payload.model_dump(exclude_none=True)).eq("id", tenant_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Tenant not found")
@@ -86,8 +99,12 @@ async def update_tenant(tenant_id: str, payload: TenantIn) -> dict[str, Any]:
 
 
 @router.delete("/{tenant_id}", status_code=204)
-async def delete_tenant(tenant_id: str) -> None:
+async def delete_tenant(tenant_id: str, user_id: str) -> None:
     sb = get_supabase()
+    current = sb.table("tenants").select("leasing_unit_id").eq("id", tenant_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
     sb.table("tenants").delete().eq("id", tenant_id).execute()
 
 
@@ -103,8 +120,9 @@ async def list_leases(tenant_id: str) -> list[dict[str, Any]]:
 
 
 @router.post("/{tenant_id}/leases", status_code=201)
-async def create_lease(tenant_id: str, payload: LeaseIn) -> dict[str, Any]:
+async def create_lease(tenant_id: str, user_id: str, payload: LeaseIn) -> dict[str, Any]:
     sb = get_supabase()
+    _require_admin(sb, user_id, payload.leasing_unit_id)
     data = payload.model_dump()
     data["tenant_id"] = tenant_id
     res = sb.table("leases").insert(data).execute()

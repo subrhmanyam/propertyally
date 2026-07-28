@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin
 from db import get_supabase
 
 router = APIRouter()
@@ -46,16 +47,19 @@ class ServiceIn(BaseModel):
 
 
 @router.post("/", status_code=201)
-async def create_catalog_item(payload: ServiceIn) -> dict[str, Any]:
-    res = get_supabase().table("service_catalog").insert(payload.model_dump()).execute()
+async def create_catalog_item(user_id: str, payload: ServiceIn) -> dict[str, Any]:
+    sb = get_supabase()
+    require_any_org_admin(sb, user_id)
+    res = sb.table("service_catalog").insert(payload.model_dump()).execute()
     return res.data[0]
 
 
 @router.put("/{service_id}")
-async def update_catalog_item(service_id: str, payload: ServiceIn) -> dict[str, Any]:
+async def update_catalog_item(service_id: str, user_id: str, payload: ServiceIn) -> dict[str, Any]:
+    sb = get_supabase()
+    require_any_org_admin(sb, user_id)
     res = (
-        get_supabase()
-        .table("service_catalog")
+        sb.table("service_catalog")
         .update(payload.model_dump())
         .eq("id", service_id)
         .execute()
@@ -66,5 +70,7 @@ async def update_catalog_item(service_id: str, payload: ServiceIn) -> dict[str, 
 
 
 @router.delete("/{service_id}", status_code=204)
-async def delete_catalog_item(service_id: str) -> None:
-    get_supabase().table("service_catalog").update({"is_active": False}).eq("id", service_id).execute()
+async def delete_catalog_item(service_id: str, user_id: str) -> None:
+    sb = get_supabase()
+    require_any_org_admin(sb, user_id)
+    sb.table("service_catalog").update({"is_active": False}).eq("id", service_id).execute()

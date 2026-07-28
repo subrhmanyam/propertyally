@@ -11,6 +11,7 @@ import anthropic
 from fastapi import APIRouter, HTTPException, Response, UploadFile, File
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin, require_org_admin_for_unit
 from db import get_supabase
 
 logger = logging.getLogger(__name__)
@@ -72,8 +73,9 @@ async def get_unit(unit_id: str) -> dict[str, Any]:
 
 
 @router.post("/", status_code=201)
-async def create_unit(payload: LeasingUnitIn) -> dict[str, Any]:
+async def create_unit(user_id: str, payload: LeasingUnitIn) -> dict[str, Any]:
     sb = get_supabase()
+    require_any_org_admin(sb, user_id)
     unit_data = payload.model_dump(exclude={"areas"})
     if not unit_data.get("id"):
         import uuid
@@ -93,8 +95,9 @@ async def create_unit(payload: LeasingUnitIn) -> dict[str, Any]:
 
 
 @router.put("/{unit_id}")
-async def update_unit(unit_id: str, payload: LeasingUnitIn) -> dict[str, Any]:
+async def update_unit(unit_id: str, user_id: str, payload: LeasingUnitIn) -> dict[str, Any]:
     sb = get_supabase()
+    require_org_admin_for_unit(sb, user_id, unit_id)
     unit_data = payload.model_dump(exclude={"areas", "id"})
     sb.table("leasing_units").update(unit_data).eq("id", unit_id).execute()
 
@@ -111,8 +114,9 @@ async def update_unit(unit_id: str, payload: LeasingUnitIn) -> dict[str, Any]:
 
 
 @router.delete("/{unit_id}", status_code=204)
-async def delete_unit(unit_id: str) -> None:
+async def delete_unit(unit_id: str, user_id: str) -> None:
     sb = get_supabase()
+    require_org_admin_for_unit(sb, user_id, unit_id)
     sb.table("leasing_units").delete().eq("id", unit_id).execute()
 
 
@@ -129,10 +133,15 @@ class PhotoDeleteIn(BaseModel):
 
 
 @router.post("/{unit_id}/photos", status_code=201)
-async def upload_photo(unit_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+async def upload_photo(
+    unit_id: str, user_id: str, file: UploadFile = File(...)
+) -> dict[str, Any]:
     """Upload one photo for a unit — appends to leasing_units.photos.
     Call once per file; the frontend loops for multi-select."""
     import gcs
+
+    sb = get_supabase()
+    require_org_admin_for_unit(sb, user_id, unit_id)
 
     media_type = file.content_type or _MIME_FROM_EXT.get(
         (file.filename or "").rsplit(".", 1)[-1].lower(), ""
@@ -147,7 +156,6 @@ async def upload_photo(unit_id: str, file: UploadFile = File(...)) -> dict[str, 
     if len(file_bytes) > _PHOTO_MAX_BYTES:
         raise HTTPException(status_code=413, detail="Photo too large (max 10 MB).")
 
-    sb = get_supabase()
     unit_res = (
         sb.table("leasing_units")
         .select("org_id, photos")
@@ -179,12 +187,13 @@ async def upload_photo(unit_id: str, file: UploadFile = File(...)) -> dict[str, 
 
 
 @router.delete("/{unit_id}/photos")
-async def delete_photo(unit_id: str, payload: PhotoDeleteIn) -> dict[str, Any]:
+async def delete_photo(unit_id: str, user_id: str, payload: PhotoDeleteIn) -> dict[str, Any]:
     """Remove one photo URL from leasing_units.photos (and best-effort delete
     the GCS object — a failure there shouldn't block removing it from the list)."""
     import gcs
 
     sb = get_supabase()
+    require_org_admin_for_unit(sb, user_id, unit_id)
     unit_res = (
         sb.table("leasing_units").select("photos").eq("id", unit_id).single().execute()
     )
@@ -318,6 +327,7 @@ def _require_unit_org_id(sb, unit_id: str) -> str:
 @router.post("/{unit_id}/agreement/upload-url")
 async def get_agreement_upload_url(
     unit_id: str,
+    user_id: str,
     payload: AgreementUploadUrlIn,
 ) -> dict[str, Any]:
     """Step 1: hand back a signed URL the browser can PUT the file to directly."""
@@ -330,6 +340,7 @@ async def get_agreement_upload_url(
         )
 
     sb = get_supabase()
+    require_org_admin_for_unit(sb, user_id, unit_id)
     org_id = _require_unit_org_id(sb, unit_id)
 
     storage_path = gcs.build_object_path(
@@ -342,12 +353,15 @@ async def get_agreement_upload_url(
 @router.post("/{unit_id}/agreement/from-storage", status_code=201)
 async def create_agreement_from_storage(
     unit_id: str,
+    user_id: str,
     payload: AgreementFromStorageIn,
 ) -> dict[str, Any]:
     """Step 2: file is already in GCS (via the signed URL) — download it
     server-side (outbound call, not subject to Cloud Run's inbound body
     limit), extract fields with Claude, and save."""
     import gcs
+
+    require_org_admin_for_unit(get_supabase(), user_id, unit_id)
 
     if payload.content_type not in _ALLOWED_MIME:
         raise HTTPException(

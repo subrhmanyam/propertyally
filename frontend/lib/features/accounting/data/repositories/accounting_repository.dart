@@ -1,10 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/transaction.dart';
 
 class AccountingRepository {
   final Dio _dio = ApiClient.accounting;
+
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
   Future<List<Transaction>> getTransactions({
     String? type,
@@ -36,13 +39,17 @@ class AccountingRepository {
   }
 
   Future<Map<String, dynamic>> generateInvoices() async {
-    final resp = await _dio.post('/api/v1/accounting/invoices/generate');
+    final resp = await _dio.post(
+      '/api/v1/accounting/invoices/generate',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+    );
     return Map<String, dynamic>.from(resp.data as Map);
   }
 
   Future<Transaction> markPaid(String transactionId) async {
     final resp = await _dio.patch(
       '/api/v1/accounting/transactions/$transactionId/status',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
       data: {'status': 'paid'},
     );
     return Transaction.fromJson(resp.data as Map<String, dynamic>);

@@ -8,9 +8,17 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin, require_org_admin_for_unit
 from db import get_supabase
 
 router = APIRouter()
+
+
+def _require_admin(sb, user_id: str, unit_id: str | None) -> None:
+    if unit_id:
+        require_org_admin_for_unit(sb, user_id, unit_id)
+    else:
+        require_any_org_admin(sb, user_id)
 
 
 SUPABASE_LISTING_MEDIA_BUCKET = getenv('SUPABASE_LISTING_MEDIA_BUCKET')
@@ -109,15 +117,20 @@ async def get_listing(listing_id: str) -> dict[str, Any]:
 
 
 @router.post("/", status_code=201)
-async def create_listing(payload: ListingIn) -> dict[str, Any]:
+async def create_listing(user_id: str, payload: ListingIn) -> dict[str, Any]:
     sb = get_supabase()
+    _require_admin(sb, user_id, payload.leasing_unit_id)
     res = sb.table("listings").insert(payload.model_dump(exclude_none=True)).execute()
     return res.data[0]
 
 
 @router.put("/{listing_id}")
-async def update_listing(listing_id: str, payload: ListingIn) -> dict[str, Any]:
+async def update_listing(listing_id: str, user_id: str, payload: ListingIn) -> dict[str, Any]:
     sb = get_supabase()
+    current = sb.table("listings").select("leasing_unit_id").eq("id", listing_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    _require_admin(sb, user_id, payload.leasing_unit_id or current.data[0].get("leasing_unit_id"))
     res = sb.table("listings").update(payload.model_dump(exclude_none=True)).eq("id", listing_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -125,8 +138,12 @@ async def update_listing(listing_id: str, payload: ListingIn) -> dict[str, Any]:
 
 
 @router.delete("/{listing_id}", status_code=204)
-async def delete_listing(listing_id: str) -> None:
+async def delete_listing(listing_id: str, user_id: str) -> None:
     sb = get_supabase()
+    current = sb.table("listings").select("leasing_unit_id").eq("id", listing_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
     sb.table("listings").delete().eq("id", listing_id).execute()
 
 

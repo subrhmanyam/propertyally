@@ -7,9 +7,17 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin, require_org_admin_for_unit
 from db import get_supabase
 
 router = APIRouter()
+
+
+def _require_admin(sb, user_id: str, unit_id: str | None) -> None:
+    if unit_id:
+        require_org_admin_for_unit(sb, user_id, unit_id)
+    else:
+        require_any_org_admin(sb, user_id)
 
 
 class TaskIn(BaseModel):
@@ -46,7 +54,7 @@ async def list_tasks(
     assigned_to: str | None = None,
 ) -> list[dict[str, Any]]:
     sb = get_supabase()
-    query = sb.table("tasks").select("*").order("due_date", ascending=True).order("created_at", desc=False)
+    query = sb.table("tasks").select("*").order("due_date", desc=False).order("created_at", desc=False)
     if property_id:
         query = query.eq("property_id", property_id)
     if unit_id:
@@ -69,8 +77,9 @@ async def get_task(task_id: str) -> dict[str, Any]:
 
 
 @router.post("/", status_code=201)
-async def create_task(payload: TaskIn) -> dict[str, Any]:
+async def create_task(user_id: str, payload: TaskIn) -> dict[str, Any]:
     sb = get_supabase()
+    _require_admin(sb, user_id, payload.leasing_unit_id)
     res = sb.table("tasks").insert(payload.model_dump(exclude_none=True)).execute()
     if not res.data:
         raise HTTPException(status_code=500, detail="Unable to create task")
@@ -78,11 +87,16 @@ async def create_task(payload: TaskIn) -> dict[str, Any]:
 
 
 @router.patch("/{task_id}")
-async def update_task(task_id: str, payload: TaskUpdate) -> dict[str, Any]:
+async def update_task(task_id: str, user_id: str, payload: TaskUpdate) -> dict[str, Any]:
     updates = {k: v for k, v in payload.model_dump(exclude_none=True).items()}
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
-    res = get_supabase().table("tasks").update(updates).eq("id", task_id).execute()
+    sb = get_supabase()
+    current = sb.table("tasks").select("leasing_unit_id").eq("id", task_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
+    res = sb.table("tasks").update(updates).eq("id", task_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Task not found")
     return res.data[0]

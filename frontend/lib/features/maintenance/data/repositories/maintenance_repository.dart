@@ -1,10 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/maintenance_request.dart';
 
 class MaintenanceRepository {
   final Dio _dio = ApiClient.maintenance;
+
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
   Future<List<MaintenanceRequest>> getAll({
     String? status,
@@ -27,7 +30,11 @@ class MaintenanceRepository {
   }
 
   Future<MaintenanceRequest> create(Map<String, dynamic> data) async {
-    final resp = await _dio.post('/api/v1/maintenance/', data: data);
+    final resp = await _dio.post(
+      '/api/v1/maintenance/',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+      data: data,
+    );
     return MaintenanceRequest.fromJson(resp.data as Map<String, dynamic>);
   }
 
@@ -35,7 +42,11 @@ class MaintenanceRepository {
   Future<MaintenanceRequest> updateStatus(
       MaintenanceRequest req, String newStatus) async {
     final body = req.toJson()..['status'] = newStatus;
-    final resp = await _dio.put('/api/v1/maintenance/${req.id}', data: body);
+    final resp = await _dio.put(
+      '/api/v1/maintenance/${req.id}',
+      queryParameters: {if (_userId != null) 'user_id': _userId},
+      data: body,
+    );
     return MaintenanceRequest.fromJson(resp.data as Map<String, dynamic>);
   }
 }

@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 import gcs
+from auth_utils import require_org_admin
 from db import get_supabase
 
 router = APIRouter()
@@ -40,6 +41,7 @@ def _resolve_org_id(sb, org_id: str | None, leasing_unit_id: str | None) -> str:
 
 @router.post("/upload", status_code=201)
 async def upload_document(
+    user_id: str,
     file: UploadFile = File(...),
     doc_type: str = Form("other"),
     leasing_unit_id: str | None = Form(None),
@@ -51,6 +53,7 @@ async def upload_document(
 
     sb = get_supabase()
     resolved_org_id = _resolve_org_id(sb, org_id, leasing_unit_id)
+    require_org_admin(sb, user_id, resolved_org_id)
 
     filename = file.filename or "upload"
     storage_path, file_url = gcs.upload_bytes(

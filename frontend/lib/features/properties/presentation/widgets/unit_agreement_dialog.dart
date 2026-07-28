@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide Headers;
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -44,6 +45,8 @@ class UnitAgreementDialog extends StatefulWidget {
 }
 
 class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
+
   UnitAgreement? _agreement;
   bool _loading = true;
   bool _uploading = false;
@@ -116,6 +119,7 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
       // limit — this bypasses that entirely for the file transfer itself.
       final urlRes = await ApiClient.properties.post(
         '/api/v1/leasing/${widget.unitId}/agreement/upload-url',
+        queryParameters: {if (_userId != null) 'user_id': _userId},
         data: {'filename': file.name, 'content_type': contentTypeStr},
       );
       final uploadUrl = urlRes.data['upload_url'] as String;
@@ -142,6 +146,7 @@ class _UnitAgreementDialogState extends State<UnitAgreementDialog> {
       setState(() => _uploadStatus = 'Extracting fields…');
       final res = await ApiClient.properties.post(
         '/api/v1/leasing/${widget.unitId}/agreement/from-storage',
+        queryParameters: {if (_userId != null) 'user_id': _userId},
         data: {
           'storage_path': storagePath,
           'filename': file.name,

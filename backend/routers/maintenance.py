@@ -9,9 +9,17 @@ from typing import Any
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
+from auth_utils import require_any_org_admin, require_org_admin_for_unit
 from db import get_supabase
 
 router = APIRouter()
+
+
+def _require_admin(sb, user_id: str, unit_id: str | None) -> None:
+    if unit_id:
+        require_org_admin_for_unit(sb, user_id, unit_id)
+    else:
+        require_any_org_admin(sb, user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -79,15 +87,20 @@ async def get_request(request_id: str) -> dict[str, Any]:
 
 
 @router.post("/", status_code=201)
-async def create_request(payload: MaintenanceRequestIn) -> dict[str, Any]:
+async def create_request(user_id: str, payload: MaintenanceRequestIn) -> dict[str, Any]:
     sb = get_supabase()
+    _require_admin(sb, user_id, payload.leasing_unit_id)
     res = sb.table("maintenance_requests").insert(payload.model_dump()).execute()
     return res.data[0]
 
 
 @router.put("/{request_id}")
-async def update_request(request_id: str, payload: MaintenanceRequestIn) -> dict[str, Any]:
+async def update_request(request_id: str, user_id: str, payload: MaintenanceRequestIn) -> dict[str, Any]:
     sb = get_supabase()
+    current = sb.table("maintenance_requests").select("leasing_unit_id").eq("id", request_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Maintenance request not found")
+    _require_admin(sb, user_id, payload.leasing_unit_id or current.data[0].get("leasing_unit_id"))
     res = (
         sb.table("maintenance_requests")
         .update(payload.model_dump())
@@ -100,14 +113,22 @@ async def update_request(request_id: str, payload: MaintenanceRequestIn) -> dict
 
 
 @router.delete("/{request_id}", status_code=204)
-async def delete_request(request_id: str) -> None:
+async def delete_request(request_id: str, user_id: str) -> None:
     sb = get_supabase()
+    current = sb.table("maintenance_requests").select("leasing_unit_id").eq("id", request_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Maintenance request not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
     sb.table("maintenance_requests").delete().eq("id", request_id).execute()
 
 
 @router.post("/{request_id}/comments", status_code=201)
-async def add_comment(request_id: str, payload: CommentIn) -> dict[str, Any]:
+async def add_comment(request_id: str, user_id: str, payload: CommentIn) -> dict[str, Any]:
     sb = get_supabase()
+    current = sb.table("maintenance_requests").select("leasing_unit_id").eq("id", request_id).limit(1).execute()
+    if not current.data:
+        raise HTTPException(status_code=404, detail="Maintenance request not found")
+    _require_admin(sb, user_id, current.data[0].get("leasing_unit_id"))
     res = sb.table("maintenance_comments").insert(
         {"request_id": request_id, **payload.model_dump()}
     ).execute()
@@ -121,6 +142,7 @@ _MAX_PHOTO_BYTES = 10 * 1024 * 1024  # 10 MB
 @router.post("/{request_id}/photos")
 async def upload_photo(
     request_id: str,
+    user_id: str,
     file: UploadFile = File(...),
 ) -> dict[str, Any]:
     """Upload a photo for a maintenance request. Stores in Supabase Storage."""
@@ -134,9 +156,10 @@ async def upload_photo(
     sb = get_supabase()
 
     # Verify request exists
-    existing = sb.table("maintenance_requests").select("id,photos").eq("id", request_id).single().execute()
+    existing = sb.table("maintenance_requests").select("id,photos,leasing_unit_id").eq("id", request_id).single().execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Maintenance request not found")
+    _require_admin(sb, user_id, existing.data.get("leasing_unit_id"))
 
     bucket = os.getenv("MAINTENANCE_PHOTOS_BUCKET", "maintenance-photos")
     ext = (file.filename or "photo.jpg").rsplit(".", 1)[-1].lower()
@@ -169,12 +192,13 @@ async def upload_photo(
 
 
 @router.delete("/{request_id}/photos")
-async def delete_photo(request_id: str, photo_url: str) -> dict[str, Any]:
+async def delete_photo(request_id: str, user_id: str, photo_url: str) -> dict[str, Any]:
     """Remove a photo URL from a maintenance request's photos array."""
     sb = get_supabase()
-    existing = sb.table("maintenance_requests").select("id,photos").eq("id", request_id).single().execute()
+    existing = sb.table("maintenance_requests").select("id,photos,leasing_unit_id").eq("id", request_id).single().execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Maintenance request not found")
+    _require_admin(sb, user_id, existing.data.get("leasing_unit_id"))
 
     photos = [p for p in (existing.data.get("photos") or []) if p != photo_url]
     res = sb.table("maintenance_requests").update({"photos": photos}).eq("id", request_id).execute()

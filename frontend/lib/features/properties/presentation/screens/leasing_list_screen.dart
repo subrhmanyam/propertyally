@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/current_org.dart';
@@ -79,8 +80,12 @@ class _LeasingListScreenState extends State<LeasingListScreen> {
         'doc_type': 'import',
         'org_id': orgId,
       });
-      final resp = await ApiClient.properties
-          .post('/api/v1/documents/upload', data: formData);
+      final userId = mounted ? context.read<AuthProvider>().user?.id : null;
+      final resp = await ApiClient.properties.post(
+        '/api/v1/documents/upload',
+        queryParameters: {if (userId != null) 'user_id': userId},
+        data: formData,
+      );
       final storagePath = (resp.data as Map?)?['storage_path'];
       debugPrint('GCS archive OK for "$filename": $storagePath');
     } catch (e) {
